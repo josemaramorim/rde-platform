@@ -1,0 +1,18 @@
+# ==================== FRONTEND ENVIRONMENT ====================
+# Next.js environment variables for R&DE Platform Frontend
+# Copy this to .env.local and fill in your values
+
+# ==================== API Configuration ====================
+# Must start with NEXT_PUBLIC_ to be available in browser
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_FRONTEND_URL=http://localhost:3000
+NEXT_PUBLIC_ADMIN_URL=http://localhost:8000
+
+# ==================== BUILD & ENVIRONMENT ====================
+NODE_ENV=development
+
+# ==================== FEATURES ====================
+# Debug mode for development console logging
+NEXT_PUBLIC_DEBUG=true
+NEXT_PUBLIC_DISABLE_SOCKETIO=true
+NEXT_PUBLIC_STRIPE_PUBLIC_KEY=pk_test_your_test_key_here

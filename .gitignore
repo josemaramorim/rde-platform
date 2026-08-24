@@ -1,0 +1,120 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+*.env
+
+# Logs
+*.log
+trades.log
+
+# Database
+*.db
+*.sqlite3
+
+# Node / React
+node_modules/
+frontend/rde-admin/build/
+frontend/rde-admin/.env.local
+
+# Docker
+.dockerignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Auto-generated entries
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+*.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Sensitive files (auto-detected)
+.env
+.env.example
+
+# Ambiente e segredos — NUNCA suba esses arquivos
+.env
+.env.*
+!.env.example
+
+# Banco de dados local
+*.db
+*.db-wal
+*.db-shm
+*.sqlite3
+
+# Sessões Telegram
+*.session
+*.session-journal
+
+# Logs
+*.log
+backend.log
+backend_err.log
+trades.log
+copier.log
+
+# Arquivos temporários do RDE
+live_status_*.json
+live_operations_*.json
+copier.pid
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.venv.linux/
+
+# Node
+node_modules/
+.next/
+
+# IDE
+.vscode/
+.idea/
+
+# Pastas antigas / backup
+rde-frontend_old_FAT32/

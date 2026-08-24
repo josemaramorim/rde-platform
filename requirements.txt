@@ -1,0 +1,63 @@
+# ============================================================
+# RDE Platform - Requirements
+# Gerado em: 2026-08-24
+# Python >= 3.11
+# ============================================================
+
+# --- Web Framework ---
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+
+# --- Autenticação ---
+fastapi-users[sqlalchemy]>=13.0.0
+
+# --- Banco de Dados ---
+sqlalchemy>=2.0.0
+aiosqlite>=0.19.0
+alembic>=1.13.0
+
+# --- Configuração ---
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
+python-dotenv>=1.0.0
+
+# --- Segurança / Criptografia ---
+cryptography>=42.0.0
+passlib[bcrypt]>=1.7.4
+python-jose[cryptography]>=3.3.0
+
+# --- Tarefas Assíncronas (Celery + Redis) ---
+celery>=5.3.0
+redis>=5.0.0
+kombu>=5.3.0
+
+# --- HTTP / WebSocket ---
+requests>=2.31.0
+aiohttp>=3.9.0
+websocket-client>=1.8.0
+websockets>=12.0
+
+# --- Telegram (Copier / Autenticação) ---
+telethon>=1.36.0
+
+# --- Pagamentos ---
+stripe>=9.0.0
+
+# --- E-mail ---
+fastapi-mail>=1.4.0
+aiosmtplib>=3.0.0
+
+# --- Machine Learning (opcional) ---
+numpy>=1.26.0
+scikit-learn>=1.4.0
+
+# --- Rate Limiting ---
+slowapi>=0.1.9
+
+# --- Secrets (opcional - produção) ---
+boto3>=1.34.0
+hvac>=2.1.0
+
+# --- Utilitários ---
+python-multipart>=0.0.9
+httpx>=0.27.0

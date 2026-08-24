@@ -1,0 +1,19 @@
+{
+  "name": "RDE - Orquestrador Operacional",
+  "short_name": "RDE",
+  "description": "Plataforma de gestão de risco e execução automatizada disponível como app instalável.",
+  "icons": [
+    {
+      "src": "/icons/manifest-icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "theme_color": "#0f172a",
+  "background_color": "#0f172a",
+  "display": "standalone",
+  "orientation": "portrait",
+  "start_url": "/",
+  "scope": "/"
+}

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>RDE Platform - Acesso</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            dark: { 50: '#f8fafc', 100: '#e2e8f0', 200: '#cbd5e1', 800: '#1e293b', 900: '#0f172a', 950: '#020617' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: #020617; }
+    .glass { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(20px); border: 1px solid rgba(51, 65, 85, 0.4); }
+    .text-gradient { background: linear-gradient(135deg, #60a5fa, #22d3ee); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .btn-primary { background: linear-gradient(135deg, #3b82f6, #06b6d4); transition: all 0.3s; }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(59, 130, 246, 0.3); }
+    .card-hover { transition: all 0.3s; }
+    .card-hover:hover { transform: translateY(-4px); }
+  </style>
+</head>
+<body class="text-white min-h-screen flex flex-col">
+  <div class="flex-1 flex items-center justify-center p-6">
+    <div class="w-full max-w-5xl">
+      <div class="text-center mb-12">
+        <h1 class="text-6xl font-black tracking-widest text-gradient mb-4">RDE</h1>
+        <p class="text-slate-400 text-lg">Plataforma de Trading Risk-Disciplined</p>
+        <div class="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="text-emerald-400 text-sm font-bold uppercase tracking-wider">Online</span>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-8">
+        <a href="/login" class="glass rounded-3xl p-8 card-hover group">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-12 h-12 rounded-2xl bg-blue-500/20 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">👤</div>
+            <div>
+              <h2 class="text-2xl font-black">Cliente</h2>
+              <p class="text-slate-400 text-sm">Acesso ao painel de trading</p>
+            </div>
+          </div>
+          <div class="space-y-3 mb-8">
+            <div class="flex items-center gap-3 text-slate-300">
+              <span class="text-emerald-400">✓</span>
+              <span class="text-sm">Painel de Dashboard ao vivo</span>
+            </div>
+            <div class="flex items-center gap-3 text-slate-300">
+              <span class="text-emerald-400">✓</span>
+              <span class="text-sm">Contas Demo e Real</span>
+            </div>
+            <div class="flex items-center gap-3 text-slate-300">
+              <span class="text-emerald-400">✓</span>
+              <span class="text-sm">Planilha de performance</span>
+            </div>
+            <div class="flex items-center gap-3 text-slate-300">
+              <span class="text-emerald-400">✓</span>
+              <span class="text-sm">Gestão de risco integrada</span>
+            </div>
+          </div>
+          <div class="btn-primary text-center py-4 rounded-2xl font-black uppercase tracking-wider text-sm">
+            Acessar Plataforma →
+          </div>
+          <div class="mt-4 p-4 rounded-2xl bg-slate-800/50">
+            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">Credenciais de Teste</p>
+            <p class="text-sm text-slate-300">Email: <span class="text-blue-400 font-mono">reginier.jp@gmail.com</span></p>
+            <p class="text-sm text-slate-300">Senha: <span class="text-blue-400 font-mono">cliente@2024</span></p>
+          </div>
+        </a>
+
+        <a href="/admin" class="glass rounded-3xl p-8 card-hover group">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-12 h-12 rounded-2xl bg-purple-500/20 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">👑</div>
+            <div>
+              <h2 class="text-2xl font-black">Administrador</h2>
+              <p class="text-slate-400 text-sm">Controle total da plataforma</p>
+            </div>
+          </div>
+          <div class="space-y-3 mb-8">
+            <div class="flex items-center gap-3 text-slate-300">
+              <span class="text-purple-400">✓</span>
+              <span class="text-sm">Gestão de clientes</span>
+            </div>
+            <div class="flex items-center gap-3 text-slate-300">
+              <span class="text-purple-400">✓</span>
+              <span class="text-sm">Geração de tokens/licenças</span>
+            </div>
+            <div class="flex items-center gap-3 text-slate-300">
+              <span class="text-purple-400">✓</span>
+              <span class="text-sm">Controle de planos</span>
+            </div>
+            <div class="flex items-center gap-3 text-slate-300">
+              <span class="text-purple-400">✓</span>
+              <span class="text-sm">Liberar/bloquear usuários</span>
+            </div>
+          </div>
+          <div class="btn-primary text-center py-4 rounded-2xl font-black uppercase tracking-wider text-sm">
+            Acessar Painel Admin →
+          </div>
+          <div class="mt-4 p-4 rounded-2xl bg-slate-800/50">
+            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">Credenciais de Teste</p>
+            <p class="text-sm text-slate-300">Email: <span class="text-purple-400 font-mono">ferreira.jpa1@hotmail.com</span></p>
+            <p class="text-sm text-slate-300">Senha: <span class="text-purple-400 font-mono">admin@2024</span></p>
+          </div>
+        </a>
+      </div>
+
+      <div class="mt-8 glass rounded-2xl p-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p class="text-sm text-slate-400 font-bold uppercase tracking-wider mb-1">Status do Servidor</p>
+            <p class="text-sm text-emerald-400 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Online via Cloudflare Tunnel
+            </p>
+          </div>
+          <div class="text-right">
+            <p class="text-sm text-slate-400 font-bold uppercase tracking-wider mb-1">URL da Plataforma</p>
+            <p class="text-sm text-blue-400 font-mono">https://ann-pumps-embassy-pound.trycloudflare.com</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-6 glass rounded-2xl p-6">
+        <h3 class="text-sm font-black uppercase tracking-wider text-slate-400 mb-4">📋 Planos Disponíveis</h3>
+        <div class="grid md:grid-cols-3 gap-4">
+          <div class="bg-slate-800/50 rounded-xl p-4">
+            <p class="text-emerald-400 font-black text-lg">Free</p>
+            <p class="text-xs text-slate-400 mt-1">Conta Demo • 5 sinais/dia</p>
+          </div>
+          <div class="bg-slate-800/50 rounded-xl p-4">
+            <p class="text-blue-400 font-black text-lg">Pro</p>
+            <p class="text-xs text-slate-400 mt-1">Conta Real • 100 sinais/dia</p>
+          </div>
+          <div class="bg-slate-800/50 rounded-xl p-4">
+            <p class="text-purple-400 font-black text-lg">VIP</p>
+            <p class="text-xs text-slate-400 mt-1">Conta Real • Ilimitado</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="p-6 text-center">
+    <p class="text-xs text-slate-600">RDE Platform v1.0.0 — Risk-Disciplined Execution</p>
+  </footer>
+</body>
+</html>
