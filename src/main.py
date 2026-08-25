@@ -69,6 +69,10 @@ app = FastAPI(
     description="Risk-Disciplined Execution Platform — Multi-Broker Trading SaaS"
 )
 
+# GZip compression — reduz em até 70% o tamanho dos JS/CSS entregues ao browser
+from starlette.middleware.gzip import GZipMiddleware
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
 # CORS: origens permitidas (frontend local, tunnel cloudflare, producao)
 app.add_middleware(
     CORSMiddleware,
@@ -1595,6 +1599,21 @@ if _frontend_dir:
         "Expires": "0",
     }
 
+    # Páginas que serão pré-carregadas (prefetch) pelo browser após a primeira requisição
+    _PREFETCH_PAGES = [
+        "dashboard", "planilha", "estatisticas", "risco",
+        "carteira", "configuracao", "perfil", "setup",
+    ]
+
+    def _build_prefetch_link_header() -> str:
+        """Gera cabeçalho Link com rel=prefetch para todas as páginas do menu."""
+        parts = []
+        for page in _PREFETCH_PAGES:
+            fp = _os.path.join(_frontend_dir, f"{page}.html")
+            if _os.path.isfile(fp):
+                parts.append(f"</{page}>; rel=prefetch; as=document")
+        return ", ".join(parts)
+
     def _render_html(filepath: str) -> HTMLResponse:
         try:
             with open(filepath, "r", encoding="utf-8") as f:
@@ -1605,7 +1624,11 @@ if _frontend_dir:
                 content = content.replace("</body>", f"{_TOAST_SCRIPT}</body>", 1)
             else:
                 content += _TOAST_SCRIPT
-            return HTMLResponse(content, headers=_NO_CACHE_HEADERS)
+            headers = dict(_NO_CACHE_HEADERS)
+            prefetch = _build_prefetch_link_header()
+            if prefetch:
+                headers["Link"] = prefetch
+            return HTMLResponse(content, headers=headers)
         except Exception:
             return FileResponse(filepath, headers=_NO_CACHE_HEADERS)
 
@@ -1626,8 +1649,13 @@ if _frontend_dir:
             if fp.endswith(".html"):
                 return _render_html(fp)
             ct = mimetypes.guess_type(fp)[0] or "application/octet-stream"
-            headers = _NO_CACHE_HEADERS if fp.endswith(".js") or fp.endswith(".html") else None
-            return FileResponse(fp, media_type=ct, headers=headers)
+            # JS estático: não cacheia (evita versão desatualizada)
+            # Outros assets (imagens, fonts): cache longo para velocidade
+            if fp.endswith(".js") or fp.endswith(".html"):
+                file_headers = dict(_NO_CACHE_HEADERS)
+            else:
+                file_headers = {"Cache-Control": "public, max-age=31536000, immutable"}
+            return FileResponse(fp, media_type=ct, headers=file_headers)
 
         clean_path = path.rstrip("/")
         html_fp = _os.path.join(_frontend_dir, f"{clean_path}.html")
