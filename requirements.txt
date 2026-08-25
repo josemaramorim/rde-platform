@@ -37,6 +37,9 @@ aiohttp>=3.9.0
 websocket-client>=1.8.0
 websockets>=12.0
 
+# --- Corretoras (Broker API) ---
+iqoptionapi @ git+https://github.com/Lu-Yi-Hsun/iqoptionapi.git
+
 # --- Telegram (Copier / Autenticação) ---
 telethon>=1.36.0
 
