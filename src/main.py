@@ -182,10 +182,15 @@ async def middleware_licenca(request: Request, call_next):
     return await call_next(request)
 
 
-# ====================== MODELO DE ENTRADA DO MAGIC LOGIN ======================
+# ====================== MODELO DE ENTRADA DO LOGIN ======================
 class MagicLoginRequest(BaseModel):
     email: str
     password: str = ""
+
+class LoginSchema(BaseModel):
+    username: Optional[str] = Field(default=None, json_schema_extra={"example": "ferreira.jpa1@hotmail.com"})
+    email: Optional[str] = Field(default=None, json_schema_extra={"example": "ferreira.jpa1@hotmail.com"})
+    password: str = Field(..., json_schema_extra={"example": "123456789"})
 
 # ====================== SYNC DE SALDO REAL DA CORRETORA ======================
 async def _sync_broker_balance(
@@ -322,21 +327,32 @@ app.include_router(
 
 # ====================== LOGIN (JSON + form-urlencoded) ======================
 @app.post("/auth/jwt/login", tags=["Auth"])
-async def json_login(request: Request, db: AsyncSession = Depends(get_async_session)):
-    """Login que aceita JSON ou form-urlencoded — compatível com proxy do Turbopack."""
-    ct = request.headers.get("content-type", "")
-    body_data = {}
-    try:
-        if "json" in ct:
-            body_data = await request.json()
-        else:
-            form = await request.form()
-            body_data = dict(form)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Erro ao processar request.")
-
-    email = body_data.get("username") or body_data.get("email", "")
-    password = body_data.get("password", "")
+async def json_login(
+    request: Request,
+    payload: Optional[LoginSchema] = None,
+    db: AsyncSession = Depends(get_async_session)
+):
+    """Login que aceita JSON ou form-urlencoded — compatível com Swagger UI e frontend."""
+    email = ""
+    password = ""
+    
+    if payload:
+        email = payload.email or payload.username or ""
+        password = payload.password or ""
+        
+    if not email or not password:
+        ct = request.headers.get("content-type", "")
+        body_data = {}
+        try:
+            if "json" in ct:
+                body_data = await request.json()
+            else:
+                form = await request.form()
+                body_data = dict(form)
+        except Exception:
+            pass
+        email = email or body_data.get("username") or body_data.get("email", "")
+        password = password or body_data.get("password", "")
 
     if not email or not password:
         raise HTTPException(status_code=400, detail="Email e senha são obrigatórios.")
