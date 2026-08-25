@@ -1666,29 +1666,38 @@ if _frontend_dir:
 
     @app.api_route("/{path:path}", methods=["GET", "HEAD"])
     async def spa_fallback(path: str):
-        # Ignora requisições de prefetch do Next.js App Router (_rsc, .txt, .json)
-        if "_rsc=" in path or path.endswith(".txt") or path.endswith(".json") or "_next/data" in path:
-            return JSONResponse({"detail": "Not Found"}, status_code=404)
-
+        # 1. Tenta encontrar o arquivo diretamente no diretório cliente/frontend
         fp = _os.path.join(_frontend_dir, path)
         if _os.path.isfile(fp):
             if fp.endswith(".html"):
                 return _render_html(fp)
-            ct = mimetypes.guess_type(fp)[0] or "application/octet-stream"
-            if fp.endswith(".js") or fp.endswith(".html"):
-                file_headers = dict(_NO_CACHE_HEADERS)
-            else:
-                file_headers = {"Cache-Control": "public, max-age=31536000, immutable"}
+            ct = mimetypes.guess_type(fp)[0] or ("text/plain; charset=utf-8" if fp.endswith(".txt") else "application/octet-stream")
+            file_headers = dict(_NO_CACHE_HEADERS) if (fp.endswith(".js") or fp.endswith(".html") or fp.endswith(".txt")) else {"Cache-Control": "public, max-age=31536000, immutable"}
             return FileResponse(fp, media_type=ct, headers=file_headers)
 
+        # 2. Mapeamento de atalho para arquivos .__PAGE__.txt do Next.js (ex: configuracao/__next.configuracao.__PAGE__.txt -> configuracao/__next.configuracao/__PAGE__.txt)
+        if ".__PAGE__.txt" in path:
+            alt_path = path.replace(".__PAGE__.txt", "/__PAGE__.txt")
+            alt_fp = _os.path.join(_frontend_dir, alt_path)
+            if _os.path.isfile(alt_fp):
+                return FileResponse(alt_fp, media_type="text/plain; charset=utf-8", headers=_NO_CACHE_HEADERS)
+
+        # 3. Mapeia rotas sem extensão para arquivo .html (ex: /dashboard -> dashboard.html)
         clean_path = path.rstrip("/")
         html_fp = _os.path.join(_frontend_dir, f"{clean_path}.html")
         if _os.path.isfile(html_fp):
             return _render_html(html_fp)
 
+        # 4. Prefixos de API do backend retornam 404 JSON se não encontrarem rota registrada
         for prefix in _API_PREFIXES:
             if path.startswith(prefix.lstrip("/")):
                 return JSONResponse({"detail": "Not Found"}, status_code=404)
+
+        # 5. Se for um arquivo de dados do Next (_next/data) ou .json/.txt inexistente no disco, retorna 404 JSON (não index.html)
+        if path.startswith("_next/") or path.endswith(".txt") or path.endswith(".json"):
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+
+        # 6. Fallback final para index.html (SPA)
         index_fp = _os.path.join(_frontend_dir, "index.html")
         if _os.path.isfile(index_fp):
             return _render_html(index_fp)
