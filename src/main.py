@@ -329,30 +329,28 @@ app.include_router(
 @app.post("/auth/jwt/login", tags=["Auth"])
 async def json_login(
     request: Request,
-    payload: Optional[LoginSchema] = None,
     db: AsyncSession = Depends(get_async_session)
 ):
     """Login que aceita JSON ou form-urlencoded — compatível com Swagger UI e frontend."""
-    email = ""
-    password = ""
-    
-    if payload:
-        email = payload.email or payload.username or ""
-        password = payload.password or ""
-        
-    if not email or not password:
-        ct = request.headers.get("content-type", "")
-        body_data = {}
-        try:
-            if "json" in ct:
+    ct = request.headers.get("content-type", "")
+    body_data = {}
+    try:
+        if "json" in ct:
+            body_data = await request.json()
+        elif "form" in ct or "x-www-form-urlencoded" in ct:
+            form = await request.form()
+            body_data = dict(form)
+        else:
+            try:
                 body_data = await request.json()
-            else:
+            except Exception:
                 form = await request.form()
                 body_data = dict(form)
-        except Exception:
-            pass
-        email = email or body_data.get("username") or body_data.get("email", "")
-        password = password or body_data.get("password", "")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Erro ao processar dados de login.")
+
+    email = (body_data.get("username") or body_data.get("email") or "").strip()
+    password = body_data.get("password") or ""
 
     if not email or not password:
         raise HTTPException(status_code=400, detail="Email e senha são obrigatórios.")
