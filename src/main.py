@@ -1543,32 +1543,90 @@ if _frontend_dir:
     import mimetypes
     from fastapi.responses import FileResponse, JSONResponse
 
+    from fastapi.responses import HTMLResponse
+
+    _TOAST_SCRIPT = """<script id="rde-modern-toast-system">
+(function() {
+  if (window._rde_toast_injected) return;
+  window._rde_toast_injected = true;
+  window.alert = function(msg) {
+    var container = document.getElementById('rde-toast-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'rde-toast-container';
+      container.style.cssText = 'position:fixed;top:24px;right:24px;z-index:999999;display:flex;flex-direction:column;gap:12px;max-width:420px;width:calc(100% - 48px);pointer-events:none;';
+      document.body.appendChild(container);
+    }
+    var toast = document.createElement('div');
+    toast.style.cssText = 'pointer-events:auto;background:rgba(15,23,42,0.95);border:1px solid rgba(59,130,246,0.3);color:#fff;padding:16px 20px;border-radius:16px;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 25px 35px -5px rgba(0,0,0,0.6), 0 0 15px rgba(59,130,246,0.15);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:13px;display:flex;align-items:flex-start;gap:14px;transform:translateX(50px) scale(0.95);opacity:0;transition:all 0.35s cubic-bezier(0.16,1,0.3,1);';
+    var msgStr = String(msg || '');
+    var isErr = /erro|falha|invalid|incorret|bloquead|recusad|atenção|warning|danger/i.test(msgStr);
+    var isOk = /sucesso|conectad|ativad|salv|concluíd|ok|bem-vindo/i.test(msgStr);
+    var icon = isErr ? '⚠️' : (isOk ? '✅' : 'ℹ️');
+    var iconBg = isErr ? 'rgba(239,68,68,0.15)' : (isOk ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.15)');
+    var iconBorder = isErr ? 'rgba(239,68,68,0.3)' : (isOk ? 'rgba(16,185,129,0.3)' : 'rgba(59,130,246,0.3)');
+    var accentColor = isErr ? '#f87171' : (isOk ? '#34d399' : '#60a5fa');
+    var title = isErr ? 'Aviso do Sistema' : (isOk ? 'Operação Concluída' : 'Notificação RDE');
+    toast.innerHTML = '<div style="width:38px;height:38px;border-radius:12px;background:'+iconBg+';border:1px solid '+iconBorder+';display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;box-shadow:0 4px 10px rgba(0,0,0,0.2);">'+icon+'</div>' +
+                      '<div style="flex:1;padding-top:2px;">' +
+                        '<div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:'+accentColor+';margin-bottom:3px;">'+title+'</div>' +
+                        '<div style="line-height:1.4;font-weight:500;color:#f1f5f9;word-break:break-word;">'+msgStr+'</div>' +
+                      '</div>' +
+                      '<button style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;cursor:pointer;width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;margin-left:4px;flex-shrink:0;transition:all 0.2s;" onmouseover="this.style.color=\\'#fff\\';this.style.background=\\'rgba(255,255,255,0.15)\\'" onmouseout="this.style.color=\\'#94a3b8\\';this.style.background=\\'rgba(255,255,255,0.05)\\'" onclick="var p=this.parentElement;p.style.opacity=\\'0\\';p.style.transform=\\'translateX(50px)\\';setTimeout(function(){p.remove();},300)">✕</button>';
+    container.appendChild(toast);
+    requestAnimationFrame(function() {
+      toast.style.transform = 'translateX(0) scale(1)';
+      toast.style.opacity = '1';
+    });
+    setTimeout(function() {
+      if (toast.parentElement) {
+        toast.style.transform = 'translateX(50px) scale(0.95)';
+        toast.style.opacity = '0';
+        setTimeout(function() { if(toast.parentElement) toast.remove(); }, 350);
+      }
+    }, 5000);
+  };
+})();
+</script>"""
+
+    def _render_html(filepath: str) -> HTMLResponse:
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                content = f.read()
+            if "</head>" in content:
+                content = content.replace("</head>", f"{_TOAST_SCRIPT}</head>", 1)
+            elif "</body>" in content:
+                content = content.replace("</body>", f"{_TOAST_SCRIPT}</body>", 1)
+            else:
+                content += _TOAST_SCRIPT
+            return HTMLResponse(content)
+        except Exception:
+            return FileResponse(filepath)
+
     @app.api_route("/", methods=["GET", "HEAD"])
     async def serve_index():
-        # Serve acesso.html como landing page principal (links para admin e cliente)
         fp = _os.path.join(_frontend_dir, "acesso.html")
         if _os.path.isfile(fp):
-            return FileResponse(fp)
+            return _render_html(fp)
         fp = _os.path.join(_frontend_dir, "index.html")
         if _os.path.isfile(fp):
-            return FileResponse(fp)
+            return _render_html(fp)
         return JSONResponse({"detail": "Not Found"}, status_code=404)
 
     @app.api_route("/{path:path}", methods=["GET", "HEAD"])
     async def spa_fallback(path: str):
-        # 1. Serve actual static file if it exists
         fp = _os.path.join(_frontend_dir, path)
         if _os.path.isfile(fp):
+            if fp.endswith(".html"):
+                return _render_html(fp)
             ct = mimetypes.guess_type(fp)[0] or "application/octet-stream"
             return FileResponse(fp, media_type=ct)
-        # 2. API 404 → JSON
         for prefix in _API_PREFIXES:
             if path.startswith(prefix.lstrip("/")):
                 return JSONResponse({"detail": "Not Found"}, status_code=404)
-        # 3. SPA fallback
         index_fp = _os.path.join(_frontend_dir, "index.html")
         if _os.path.isfile(index_fp):
-            return FileResponse(index_fp)
+            return _render_html(index_fp)
         return JSONResponse({"detail": "Not Found"}, status_code=404)
 
 
