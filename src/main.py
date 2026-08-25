@@ -1543,7 +1543,7 @@ if _frontend_dir:
     import mimetypes
     from fastapi.responses import FileResponse, JSONResponse
 
-    @app.get("/")
+    @app.api_route("/", methods=["GET", "HEAD"])
     async def serve_index():
         # Serve acesso.html como landing page principal (links para admin e cliente)
         fp = _os.path.join(_frontend_dir, "acesso.html")
@@ -1554,7 +1554,7 @@ if _frontend_dir:
             return FileResponse(fp)
         return JSONResponse({"detail": "Not Found"}, status_code=404)
 
-    @app.get("/{path:path}")
+    @app.api_route("/{path:path}", methods=["GET", "HEAD"])
     async def spa_fallback(path: str):
         # 1. Serve actual static file if it exists
         fp = _os.path.join(_frontend_dir, path)
