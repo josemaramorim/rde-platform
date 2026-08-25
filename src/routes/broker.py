@@ -440,8 +440,18 @@ async def test_broker_connection(
             await db.commit()
         return result
 
+    except asyncio.TimeoutError:
+        return {"status": "error", "message": "Tempo limite atingido ao conectar à corretora. Verifique suas credenciais e tente novamente."}
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        err_msg = str(e)
+        # Traduz mensagens comuns de erros de autenticação para PT-BR
+        if "wrong" in err_msg.lower() or "invalid" in err_msg.lower() or "incorrect" in err_msg.lower():
+            return {"status": "error", "message": "E-mail ou senha inválidos. Verifique suas credenciais."}
+        if "connect" in err_msg.lower() or "timeout" in err_msg.lower() or "timed out" in err_msg.lower():
+            return {"status": "error", "message": "Não foi possível conectar à corretora. Verifique sua conexão e tente novamente."}
+        if "ssid" in err_msg.lower() or "session" in err_msg.lower():
+            return {"status": "error", "message": "SSID inválido ou expirado. Gere um novo SSID na Pocket Option."}
+        return {"status": "error", "message": f"Falha na conexão: {err_msg}"}
 
 
 @router.post("/refresh-balance")
