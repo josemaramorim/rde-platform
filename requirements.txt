@@ -63,3 +63,5 @@ hvac>=2.1.0
 # --- Utilitários ---
 python-multipart>=0.0.9
 httpx>=0.27.0
+psutil>=5.9.0
+
