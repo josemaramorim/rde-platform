@@ -103,7 +103,10 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    if not request.url.path.startswith(("/docs", "/redoc", "/openapi.json")):
+    # Rotas de documentação: remove qualquer CSP que possa ter sido herdado
+    if request.url.path.startswith(("/docs", "/redoc", "/openapi.json")):
+        response.headers.pop("Content-Security-Policy", None)
+    else:
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
