@@ -1640,21 +1640,6 @@ if _frontend_dir:
         "Expires": "0",
     }
 
-    # Páginas que serão pré-carregadas (prefetch) pelo browser após a primeira requisição
-    _PREFETCH_PAGES = [
-        "dashboard", "planilha", "estatisticas", "risco",
-        "carteira", "configuracao", "perfil", "setup",
-    ]
-
-    def _build_prefetch_link_header() -> str:
-        """Gera cabeçalho Link com rel=prefetch para todas as páginas do menu."""
-        parts = []
-        for page in _PREFETCH_PAGES:
-            fp = _os.path.join(_frontend_dir, f"{page}.html")
-            if _os.path.isfile(fp):
-                parts.append(f"</{page}>; rel=prefetch; as=document")
-        return ", ".join(parts)
-
     def _render_html(filepath: str) -> HTMLResponse:
         try:
             with open(filepath, "r", encoding="utf-8") as f:
@@ -1665,11 +1650,7 @@ if _frontend_dir:
                 content = content.replace("</body>", f"{_TOAST_SCRIPT}</body>", 1)
             else:
                 content += _TOAST_SCRIPT
-            headers = dict(_NO_CACHE_HEADERS)
-            prefetch = _build_prefetch_link_header()
-            if prefetch:
-                headers["Link"] = prefetch
-            return HTMLResponse(content, headers=headers)
+            return HTMLResponse(content, headers=_NO_CACHE_HEADERS)
         except Exception:
             return FileResponse(filepath, headers=_NO_CACHE_HEADERS)
 
@@ -1685,13 +1666,15 @@ if _frontend_dir:
 
     @app.api_route("/{path:path}", methods=["GET", "HEAD"])
     async def spa_fallback(path: str):
+        # Ignora requisições de prefetch do Next.js App Router (_rsc, .txt, .json)
+        if "_rsc=" in path or path.endswith(".txt") or path.endswith(".json") or "_next/data" in path:
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+
         fp = _os.path.join(_frontend_dir, path)
         if _os.path.isfile(fp):
             if fp.endswith(".html"):
                 return _render_html(fp)
             ct = mimetypes.guess_type(fp)[0] or "application/octet-stream"
-            # JS estático: não cacheia (evita versão desatualizada)
-            # Outros assets (imagens, fonts): cache longo para velocidade
             if fp.endswith(".js") or fp.endswith(".html"):
                 file_headers = dict(_NO_CACHE_HEADERS)
             else:
