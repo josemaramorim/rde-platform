@@ -74,5 +74,39 @@ def get_broker(user, db=None):
         broker.connect()
         return broker
 
+    elif broker_name == "quotex":
+        email = None
+        password = None
+        if setting and setting.api_token:
+            token = _decrypt(setting.api_token)
+            if token and "|||" in token:
+                email, password = token.split("|||", 1)
+            elif setting.iq_email:
+                email = setting.iq_email
+                password = token
+        if not email:
+            email = user.iq_email
+        if not password and user.iq_password:
+            password = _decrypt(user.iq_password)
+        if not email or not password:
+            raise ValueError("Quotex credentials are not configured for this user.")
+        from src.broker.quotex import QuotexBroker
+        broker = QuotexBroker(email=email, password=password, is_demo=is_demo)
+        broker.connect()
+        return broker
+
+    elif broker_name == "pocketoption":
+        ssid = None
+        if setting and setting.api_token:
+            ssid = _decrypt(setting.api_token)
+        if not ssid and hasattr(user, "api_token"):
+            ssid = _decrypt(user.api_token)
+        if not ssid:
+            raise ValueError("Pocket Option SSID is not configured for this user.")
+        from src.broker.pocketoption import PocketOptionBroker
+        broker = PocketOptionBroker(ssid=ssid, is_demo=is_demo)
+        broker.connect()
+        return broker
+
     else:
         raise ValueError(f"Unsupported broker: '{broker_name}'")

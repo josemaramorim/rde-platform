@@ -78,7 +78,7 @@ app.add_middleware(
         "https://rde-platform.vercel.app",
         "https://ann-pumps-embassy-pound.trycloudflare.com",
     ],
-    allow_origin_regex="https://.*\\.trycloudflare\\.com",
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1589,6 +1589,12 @@ if _frontend_dir:
 })();
 </script>"""
 
+    _NO_CACHE_HEADERS = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    }
+
     def _render_html(filepath: str) -> HTMLResponse:
         try:
             with open(filepath, "r", encoding="utf-8") as f:
@@ -1599,9 +1605,9 @@ if _frontend_dir:
                 content = content.replace("</body>", f"{_TOAST_SCRIPT}</body>", 1)
             else:
                 content += _TOAST_SCRIPT
-            return HTMLResponse(content)
+            return HTMLResponse(content, headers=_NO_CACHE_HEADERS)
         except Exception:
-            return FileResponse(filepath)
+            return FileResponse(filepath, headers=_NO_CACHE_HEADERS)
 
     @app.api_route("/", methods=["GET", "HEAD"])
     async def serve_index():
@@ -1620,7 +1626,14 @@ if _frontend_dir:
             if fp.endswith(".html"):
                 return _render_html(fp)
             ct = mimetypes.guess_type(fp)[0] or "application/octet-stream"
-            return FileResponse(fp, media_type=ct)
+            headers = _NO_CACHE_HEADERS if fp.endswith(".js") or fp.endswith(".html") else None
+            return FileResponse(fp, media_type=ct, headers=headers)
+
+        clean_path = path.rstrip("/")
+        html_fp = _os.path.join(_frontend_dir, f"{clean_path}.html")
+        if _os.path.isfile(html_fp):
+            return _render_html(html_fp)
+
         for prefix in _API_PREFIXES:
             if path.startswith(prefix.lstrip("/")):
                 return JSONResponse({"detail": "Not Found"}, status_code=404)

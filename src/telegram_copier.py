@@ -669,15 +669,17 @@ class TelegramCopier:
             
             # ── Deriv ──────────────────────────────────────────────────
             if broker_name in ("deriv", "deriv_demo", "deriv_real"):
+                from src.broker.deriv import DerivBroker
                 token = creds.get("api_token") or os.getenv("DERIV_API_TOKEN", "")
                 if not token:
                     logger.error("Nenhum token Deriv encontrado.")
                     return False
-                self.broker = DerivBroker(api_token=token, app_id=creds.get("app_id") or "16929")
+                self.broker = DerivBroker(api_token=token, is_demo=is_demo, app_id=creds.get("app_id") or "16929")
                 self.broker.connect()
             
             # ── IQ Option ──────────────────────────────────────────────
             elif broker_name == "iqoption":
+                from src.broker.iqoption import IQOptionBroker
                 api_token = creds.get("api_token") or ""
                 email = creds.get("email") or os.getenv("IQ_EMAIL", "")
                 password = creds.get("password") or ""
@@ -690,23 +692,57 @@ class TelegramCopier:
                     email=email, password=password, is_demo=is_demo
                 )
                 self.broker.connect()
+
+            # ── Quotex ─────────────────────────────────────────────────
+            elif broker_name == "quotex":
+                from src.broker.quotex import QuotexBroker
+                api_token = creds.get("api_token") or ""
+                email = creds.get("email") or os.getenv("QUOTEX_EMAIL", "")
+                password = creds.get("password") or ""
+                if "|||" in api_token:
+                    email, password = api_token.split("|||", 1)
+                if not email or not password:
+                    logger.error("[CROSS] Credenciais Quotex ausentes.")
+                    return False
+                self.broker = QuotexBroker(
+                    email=email, password=password, is_demo=is_demo
+                )
+                self.broker.connect()
+
+            # ── Pocket Option ──────────────────────────────────────────
+            elif broker_name == "pocketoption":
+                from src.broker.pocketoption import PocketOptionBroker
+                ssid = creds.get("api_token") or creds.get("ssid") or os.getenv("POCKET_SSID", "")
+                if not ssid:
+                    logger.error("[CROSS] SSID Pocket Option ausente.")
+                    return False
+                self.broker = PocketOptionBroker(
+                    ssid=ssid, is_demo=is_demo
+                )
+                self.broker.connect()
             
             else:
                 logger.error(f"[CROSS] Broker não suportado: {broker_name}")
                 return False
             
             # Get initial balance
-            self.initial_balance = self.broker.get_balance()
-            
-            if not self.initial_balance:
-                logger.error(f"[CROSS] Saldo retornado como 0 para {broker_name}. Conexão recusada.")
-                return False
+            try:
+                if hasattr(self.broker, "async_get_balance"):
+                    self.initial_balance = await self.broker.async_get_balance()
+                else:
+                    self.initial_balance = self.broker.get_balance()
+            except Exception as e:
+                logger.warning(f"Erro ao ler saldo inicial do broker: {e}")
+                self.initial_balance = 0.0
+
+            if self.initial_balance is None:
+                self.initial_balance = 0.0
             
             self.current_balance = self.initial_balance
             
             # Inicializa SessionManager com o saldo
             from src.services.management_3pct import SessionManager
-            self.session_manager = SessionManager(self.initial_balance)
+            self.session_manager = SessionManager(self.initial_balance if self.initial_balance > 0 else 100.0)
             logger.info(
                 f"[GER] Sessao iniciada: meta diaria=${self.session_manager.daily_target} "
                 f"(3x ${self.session_manager.session_target})"
@@ -1282,14 +1318,14 @@ class TelegramCopier:
         # PID so e escrito apos broker conectar com sucesso
         self._write_pid()
         
-        logger.info(f"[RADAR] Aguardando sinais... Meta: ${round(self.initial_balance * 0.03, 2)}")
-        self.update_live_status("Aguardando sinais da sala...")
+        self.update_live_status("Autenticando no Telegram...")
         
         if not await self._authenticate_telegram():
             self.update_live_status("Erro: falha na autenticacao Telegram")
             return
         
         self.is_running = True
+        self.update_live_status("Aguardando sinais da sala...")
 
         @self.client.on(events.NewMessage(chats=self.target_chats))
         async def handler(event):
