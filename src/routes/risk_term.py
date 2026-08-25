@@ -101,7 +101,10 @@ async def accept_term(
     )
     existing = result.scalar_one_or_none()
 
-    ip = request.client.host if request.client else ""
+    try:
+        ip = request.client.host if (request.client and hasattr(request.client, "host")) else ""
+    except Exception:
+        ip = ""
     ua = request.headers.get("user-agent", "")
 
     if existing:
