@@ -370,13 +370,13 @@ async def json_login(request: Request, db: AsyncSession = Depends(get_async_sess
 @app.post("/auth/magic-login", tags=["Auth"])
 async def magic_login(payload: MagicLoginRequest, db: AsyncSession = Depends(get_async_session)):
     email = payload.email
-    if email != settings.ADMIN_EMAIL:
-        raise HTTPException(status_code=403, detail="Acesso negado.")
-    
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Admin nao encontrado.")
+    
+    if email != settings.ADMIN_EMAIL and not getattr(user, "is_admin", False) and not getattr(user, "is_superuser", False):
+        raise HTTPException(status_code=403, detail="Acesso negado.")
     
     if not payload.password:
         raise HTTPException(status_code=401, detail="Senha obrigatoria.")
