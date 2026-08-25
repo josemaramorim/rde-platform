@@ -35,5 +35,8 @@ COPY . .
 # Porta exposta pela aplicação
 EXPOSE 8000
 
+# Cria pasta para o banco de dados SQLite com permissão de escrita
+RUN mkdir -p /data && chmod 777 /data
+
 # Comando de inicialização
 CMD ["python", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

@@ -9,8 +9,10 @@ services:
       - "8000:8000"
     env_file:
       - icontainer.env
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:////data/rde_local.db
     volumes:
-      - rde_db:/app/rde_local.db
+      - rde_db:/data
 
 volumes:
   rde_db:
