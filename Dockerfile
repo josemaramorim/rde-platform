@@ -18,6 +18,7 @@ WORKDIR /app
 # Instala dependências do sistema necessárias para alguns pacotes Python
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    git \
     libffi-dev \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
