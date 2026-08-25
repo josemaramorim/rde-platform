@@ -118,3 +118,6 @@ node_modules/
 
 # Pastas antigas / backup
 rde-frontend_old_FAT32/
+
+# Documentação local (não vai para o git)
+docs/
