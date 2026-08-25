@@ -105,7 +105,8 @@ async def security_headers(request: Request, call_next):
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     # Rotas de documentação: remove qualquer CSP que possa ter sido herdado
     if request.url.path.startswith(("/docs", "/redoc", "/openapi.json")):
-        response.headers.pop("Content-Security-Policy", None)
+        if "Content-Security-Policy" in response.headers:
+            del response.headers["Content-Security-Policy"]
     else:
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
