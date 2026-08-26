@@ -6,6 +6,7 @@ from typing import AsyncGenerator
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.pool import NullPool
 
 from src.core.config import settings
 
@@ -14,19 +15,31 @@ DB_URL = settings.DATABASE_URL
 # ── Derivar URL síncrona ──────────────────────────────────────────────────────
 if DB_URL.startswith("sqlite+aiosqlite://"):
     SYNC_URL = DB_URL.replace("sqlite+aiosqlite://", "sqlite://")
-    _connect_args = {"check_same_thread": False}
 else:
     SYNC_URL = DB_URL.replace("postgresql+asyncpg://", "postgresql://")
-    _connect_args = {}
 
 # ── Sync engine (Celery / scripts) ───────────────────────────────────────────
-sync_engine = create_engine(SYNC_URL, echo=False, connect_args=_connect_args)
+sync_kwargs: dict = {"echo": False}
+if SYNC_URL.startswith("sqlite://"):
+    sync_kwargs["connect_args"] = {"check_same_thread": False, "timeout": 30}
+    sync_kwargs["poolclass"] = NullPool
+else:
+    sync_kwargs["pool_size"] = 20
+    sync_kwargs["max_overflow"] = 40
+    sync_kwargs["pool_pre_ping"] = True
+
+sync_engine = create_engine(SYNC_URL, **sync_kwargs)
 
 if SYNC_URL.startswith("sqlite://"):
     @event.listens_for(sync_engine, "connect")
     def _set_sqlite_pragma(dbapi_conn, _):
-        dbapi_conn.execute("PRAGMA journal_mode=WAL")
-        dbapi_conn.execute("PRAGMA foreign_keys=ON")
+        try:
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+        except Exception:
+            pass
 
 SessionLocal = sessionmaker(
     bind=sync_engine, autocommit=False, autoflush=False
@@ -42,11 +55,16 @@ def get_db():
 
 
 # ── Async engine (FastAPI) ────────────────────────────────────────────────────
-_async_kwargs = {}
+_async_kwargs: dict = {"echo": False}
 if DB_URL.startswith("sqlite+aiosqlite://"):
-    _async_kwargs["connect_args"] = {"check_same_thread": False}
+    _async_kwargs["connect_args"] = {"check_same_thread": False, "timeout": 30}
+    _async_kwargs["poolclass"] = NullPool
+else:
+    _async_kwargs["pool_size"] = 20
+    _async_kwargs["max_overflow"] = 40
+    _async_kwargs["pool_pre_ping"] = True
 
-engine = create_async_engine(DB_URL, echo=False, **_async_kwargs)
+engine = create_async_engine(DB_URL, **_async_kwargs)
 AsyncSessionLocal = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
@@ -54,4 +72,7 @@ AsyncSessionLocal = async_sessionmaker(
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
-        yield session
+        try:
+            yield session
+        finally:
+            await session.close()
