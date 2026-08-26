@@ -54,20 +54,10 @@ class TelegramCopier:
         if settings.TELEGRAM_CHAT_ID:
             for c in settings.TELEGRAM_CHAT_ID.split(","):
                 c = c.strip()
-                if c:
-                    chats_list.append(int(c) if c.lstrip('-').isdigit() else c)
-        if settings.TELEGRAM_GROUP_NAME:
-            gname = settings.TELEGRAM_GROUP_NAME.strip()
-            if gname and gname not in chats_list:
-                chats_list.append(gname)
-            if " " in gname:
-                alt_gname = gname.replace(" ", "")
-                if alt_gname not in chats_list:
-                    chats_list.append(alt_gname)
-            else:
-                alt_gname = gname.replace("R&DE", "R&DE ")
-                if alt_gname not in chats_list:
-                    chats_list.append(alt_gname)
+                if c and c.lstrip('-').isdigit():
+                    chats_list.append(int(c))
+                elif c and c.startswith("@"):
+                    chats_list.append(c)
 
         self.target_chats = chats_list if chats_list else None
 
