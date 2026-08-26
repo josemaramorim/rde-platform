@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEstado } from "@/hooks/useEstado";
 import { API_URL } from "@/lib/constants";
@@ -18,6 +18,15 @@ function LoginForm() {
   
   // Usando a função 'recarregar' do seu useEstado.ts
   const { recarregar } = useEstado();
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const t = sessionStorage.getItem("rde_token") || localStorage.getItem("rde_token");
+      if (t) {
+        window.location.replace("/dashboard");
+      }
+    }
+  }, []);
 
   const isCliente = searchParams.get("tipo") === "cliente";
 
