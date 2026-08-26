@@ -110,6 +110,23 @@ export default function DashboardPage() {
     }
   };
 
+  // Checar status do Telegram ao carregar o Dashboard
+  useEffect(() => {
+    if (!token) return;
+    fetch("/telegram/status", {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d && (d.connected || d.authenticated)) {
+          setTelegramAuthState("authenticated");
+        } else {
+          setTelegramAuthState("idle");
+        }
+      })
+      .catch(() => setTelegramAuthState("idle"));
+  }, [token]);
+
   // Pooling de dados em tempo real (intervalo de 5 segundos)
   useEffect(() => {
     buscarDadosDashboard();
