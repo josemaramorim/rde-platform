@@ -152,22 +152,25 @@ class IQOptionBroker(BaseBroker):
 
     def _wait_init(self, timeout: int = 5):
         """Aguarda get_all_init completar e constroi asset map."""
-        if self.api is None:
+        if self.api is None or not hasattr(self.api, 'api'):
             return
         try:
+            # Se o resultado ja existe (veio na conexao), constroi direto!
+            res = getattr(self.api.api, 'api_option_init_all_result', None)
+            if res and res.get("isSuccessful"):
+                self._build_asset_map()
+                self._refresh_open_status()
+                return
+
             logger.info(f"Aguardando api_option_init_all (timeout={timeout}s)...")
-            self.api.api.api_option_init_all_result = None
             self.api.api.get_api_option_init_all()
             deadline = time.time() + timeout
             while time.time() < deadline:
                 result = getattr(self.api.api, 'api_option_init_all_result', None)
-                if result is not None:
-                    if result.get("isSuccessful"):
-                        logger.info("api_option_init_all concluido com sucesso.")
-                        self._build_asset_map()
-                        self._refresh_open_status()
-                    else:
-                        logger.warning("api_option_init_all retornou isSuccessful=False")
+                if result is not None and result.get("isSuccessful"):
+                    logger.info("api_option_init_all concluido com sucesso.")
+                    self._build_asset_map()
+                    self._refresh_open_status()
                     return
                 time.sleep(0.3)
             logger.warning(f"api_option_init_all timeout ({timeout}s). Continuando...")
@@ -257,22 +260,22 @@ class IQOptionBroker(BaseBroker):
 
     def _ensure_connected(self) -> bool:
         """Verifica se a conexao esta viva e asset map populado. Reconecta se necessario."""
-        if self._is_alive() and self._asset_map:
+        if self._is_alive():
+            if not self._asset_map:
+                logger.info("Conexao viva. Populando asset map sem desconectar...")
+                self._wait_init(timeout=5)
             return True
 
-        if not self._is_alive():
-            logger.warning("Conexao IQ Option perdida. Reconectando...")
-        else:
-            logger.warning("Asset map vazio apos conexao viva. Reconectando para re-popular...")
+        logger.warning("Conexao IQ Option perdida. Reconectando...")
         self._fully_disconnect()
 
         for attempt in range(3):
             try:
-                time.sleep(2 + attempt * 2)
-                self.connect()
-                if self._is_alive() and self._asset_map:
+                time.sleep(1 + attempt)
+                self.connect(wait_init=True)
+                if self._is_alive():
                     return True
-                logger.warning(f"Reconexao {attempt+1}/3: conexao criada mas saldo/asset_map invalido.")
+                logger.warning(f"Reconexao {attempt+1}/3: conexao criada mas saldo invalido.")
                 self._fully_disconnect()
             except Exception as e:
                 logger.warning(f"Reconexao {attempt+1}/3 falhou: {e}")
