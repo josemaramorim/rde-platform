@@ -59,6 +59,8 @@ export default function LandingPage() {
     const token = sessionStorage.getItem("rde_token") || localStorage.getItem("rde_token");
     if (token) {
       router.replace("/dashboard");
+    } else {
+      router.replace("/login");
     }
   }, [router]);
 

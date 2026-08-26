@@ -86,12 +86,13 @@ export default function Sidebar() {
       <div className="p-4 border-t border-slate-900/40">
         <button
           onClick={() => {
-            sessionStorage.removeItem("rde_token");
+            sessionStorage.clear();
             localStorage.removeItem("rde_token");
             localStorage.removeItem("rde_email");
             localStorage.removeItem("rde_pass");
             localStorage.removeItem("rde_role");
-            window.location.href = "/";
+            localStorage.removeItem("rde_estado");
+            window.location.href = "/login";
           }}
           className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-red-400 transition-colors text-sm font-bold w-full cursor-pointer rounded-xl hover:bg-red-500/5"
         >
