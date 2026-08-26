@@ -150,15 +150,15 @@ class IQOptionBroker(BaseBroker):
             logger.info(f"  {sym}: {entries}")
         logger.info(f"Asset map construido com {len(self._asset_map)} ativos e {len(self._asset_base_index)} base symbols")
 
-    def _wait_init(self):
+    def _wait_init(self, timeout: int = 3):
         """Aguarda get_all_init completar e constroi asset map."""
         if self.api is None:
             return
         try:
-            logger.info("Aguardando api_option_init_all...")
+            logger.info(f"Aguardando api_option_init_all (timeout={timeout}s)...")
             self.api.api.api_option_init_all_result = None
             self.api.api.get_api_option_init_all()
-            deadline = time.time() + 25
+            deadline = time.time() + timeout
             while time.time() < deadline:
                 result = getattr(self.api.api, 'api_option_init_all_result', None)
                 if result is not None:
@@ -169,8 +169,8 @@ class IQOptionBroker(BaseBroker):
                     else:
                         logger.warning("api_option_init_all retornou isSuccessful=False")
                     return
-                time.sleep(1)
-            logger.warning("api_option_init_all timeout (25s). Continuando...")
+                time.sleep(0.3)
+            logger.warning(f"api_option_init_all timeout ({timeout}s). Continuando...")
         except Exception as e:
             logger.warning(f"get_all_init falhou (continuando): {e}")
 
@@ -220,13 +220,13 @@ class IQOptionBroker(BaseBroker):
         logger.warning(f"Variacao '{name}' sem dados de open-status. Assumindo aberto como fallback.")
         return True
 
-    def connect(self):
+    def connect(self, wait_init: bool = False):
         if IQ_Option is None:
             raise RuntimeError(f"iqoptionapi is not installed: {_IMPORT_ERROR}")
 
         with _RECONNECT_LOCK:
             self._fully_disconnect()
-            time.sleep(1)
+            time.sleep(0.5)
 
             self.api = IQ_Option(self.email, self.password)
             check, reason = self.api.connect()
@@ -239,8 +239,9 @@ class IQOptionBroker(BaseBroker):
             self._last_connect_time = time.time()
             logger.info(f"IQ Option connected ({account_type})")
 
-            # Carrega o asset map inicial assim que a conexão é estabelecida
-            self._wait_init()
+            # Carrega o asset map apenas se explicitamente solicitado (ex: ao processar operacoes)
+            if wait_init:
+                self._wait_init(timeout=3)
 
     def _is_alive(self) -> bool:
         """Verifica se a conexao esta viva tentando obter saldo."""
