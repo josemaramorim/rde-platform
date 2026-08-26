@@ -115,13 +115,23 @@ class TelegramCopier:
         try:
             return TelegramClient(
                 base, self.api_id, self.api_hash,
-                connection_retries=10,
+                connection_retries=None,
+                retry_delay=2,
+                auto_reconnect=True,
+                request_retries=10,
                 timeout=30,
             )
         except Exception:
             logger.warning("Usando sessao temporaria (sessao fixa indisponivel).")
             self.session_name = f"rde_session_{int(time.time())}"
-            return TelegramClient(self.session_name, self.api_id, self.api_hash, connection_retries=10)
+            return TelegramClient(
+                self.session_name, self.api_id, self.api_hash,
+                connection_retries=None,
+                retry_delay=2,
+                auto_reconnect=True,
+                request_retries=10,
+                timeout=30,
+            )
 
     def load_state(self):
         """Carrega estatísticas persistentes do dia."""
