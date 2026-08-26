@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEstado } from '@/hooks/useEstado';
 import { API_URL, formatMoney, Currency, errToText } from '@/lib/constants';
+import { toast } from '@/components/Toast';
 
 interface Trade {
   id: string;
@@ -154,12 +155,12 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const msg = data?.detail?.message || data?.message || 'Falha ao alterar o estado do Copier no servidor.';
-        alert(msg);
+        toast.error(msg, "Automação");
         return;
       }
 
       if (data?.status === 'error') {
-        alert(data.message || 'Erro ao ativar copier.');
+        toast.error(data.message || 'Erro ao ativar copier.', "Automação");
         return;
       }
 

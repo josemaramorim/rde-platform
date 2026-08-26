@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useEstado } from "@/hooks/useEstado";
-import { API_URL } from "@/lib/constants";
+import { toast } from "@/components/Toast";
 
 export default function ProfilePage() {
   const { estado, salvar } = useEstado();
@@ -66,7 +66,7 @@ export default function ProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) { 
-      alert("Foto muito grande. Máximo 2MB."); 
+      toast.error("Foto muito grande. Máximo 2MB.", "Perfil"); 
       return; 
     }
     const reader = new FileReader();

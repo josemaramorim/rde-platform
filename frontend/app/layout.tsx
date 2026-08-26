@@ -1,13 +1,13 @@
 "use client";
 
 import "./globals.css";
-import { Viewport } from "next";
 import Sidebar from "@/components/Sidebar";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import SessionProvider from "@/components/SessionProvider";
 import VersionCheck from "@/components/VersionCheck";
 import { EstadoProvider } from "@/hooks/useEstado";
-import { usePathname } from "next/navigation"; // 👈 Importado para detectar a página atual
+import { usePathname } from "next/navigation";
+import ToastContainer from "@/components/Toast";
 
 export default function RootLayout({
   children,
@@ -22,6 +22,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className="dark" suppressHydrationWarning>
       <body className="antialiased selection-none bg-slate-950 text-white">
+        <ToastContainer />
         <ServiceWorkerRegister />
         <VersionCheck />
         <EstadoProvider>
