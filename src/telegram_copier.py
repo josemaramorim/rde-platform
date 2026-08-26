@@ -604,7 +604,7 @@ class TelegramCopier:
                 creds = {
                     "api_token": _decrypt(setting.api_token),
                     "email": setting.iq_email,
-                    "password": setting.iq_password,
+                    "password": _decrypt(setting.iq_password),
                 }
                 # Fallback para user-level credentials se BrokerSetting estiver vazio
                 if not creds.get("email"):
