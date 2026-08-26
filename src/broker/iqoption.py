@@ -120,17 +120,13 @@ class IQOptionBroker(BaseBroker):
         self.api = None
 
     def _build_asset_map(self):
-        """Extrai lista de ativos disponiveis do init result e cria mapping.
-
-        Chave = nome COMPLETO do ativo (ex: "GBPUSD-OTC", "GBPUSD-op", "GBPUSD"),
-        para que a busca exata do sinal nunca caia num ativo diferente.
-        Mantem tambem um indice por base_symbol apenas como fallback final.
-        """
+        """Extrai lista de ativos disponiveis do init result e cria mapping."""
         self._asset_map = {}
         self._asset_base_index = {}
         self._preferred_asset = None
-        result = getattr(self.api.api, 'api_option_init_all_result', None)
-        if not result or not result.get("isSuccessful"):
+        raw_res = getattr(self.api.api, 'api_option_init_all_result', None)
+        result = raw_res[0] if isinstance(raw_res, list) and len(raw_res) > 0 else raw_res
+        if not isinstance(result, dict) or not result.get("isSuccessful"):
             logger.warning("init result nao disponivel para asset map")
             return
         for cat in ("turbo", "binary"):
@@ -155,9 +151,14 @@ class IQOptionBroker(BaseBroker):
         if self.api is None or not hasattr(self.api, 'api'):
             return
         try:
+            def _check_ok(res):
+                if isinstance(res, dict): return bool(res.get("isSuccessful"))
+                if isinstance(res, list) and len(res) > 0 and isinstance(res[0], dict): return bool(res[0].get("isSuccessful"))
+                return False
+
             # Se o resultado ja existe (veio na conexao), constroi direto!
             res = getattr(self.api.api, 'api_option_init_all_result', None)
-            if res and res.get("isSuccessful"):
+            if _check_ok(res):
                 self._build_asset_map()
                 self._refresh_open_status()
                 return
@@ -167,7 +168,7 @@ class IQOptionBroker(BaseBroker):
             deadline = time.time() + timeout
             while time.time() < deadline:
                 result = getattr(self.api.api, 'api_option_init_all_result', None)
-                if result is not None and result.get("isSuccessful"):
+                if _check_ok(result):
                     logger.info("api_option_init_all concluido com sucesso.")
                     self._build_asset_map()
                     self._refresh_open_status()
