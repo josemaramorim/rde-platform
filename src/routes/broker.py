@@ -431,8 +431,14 @@ async def test_broker_connection(
 
         loop = asyncio.get_event_loop()
         with ThreadPoolExecutor() as pool:
-            result = await loop.run_in_executor(pool, _connect_and_balance)
-        
+            try:
+                result = await asyncio.wait_for(
+                    loop.run_in_executor(pool, _connect_and_balance),
+                    timeout=10.0
+                )
+            except asyncio.TimeoutError:
+                return {"status": "error", "message": f"Tempo limite (10s) atingido ao conectar com {broker_name}."}
+
         # Save balance to DB so dashboard can read it
         if result.get("status") == "ok":
             setting.balance = result.get("balance", 0)
