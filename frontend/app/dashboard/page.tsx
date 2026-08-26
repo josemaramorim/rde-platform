@@ -110,15 +110,15 @@ export default function DashboardPage() {
     }
   };
 
-  // Checar status do Telegram ao carregar o Dashboard
+  // Checar status de autenticação da sessão do Telegram ao carregar o Dashboard
   useEffect(() => {
     if (!token) return;
-    fetch("/telegram/status", {
+    fetch("/telegram/auth-status", {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        if (d && (d.connected || d.authenticated)) {
+        if (d && d.authenticated) {
           setTelegramAuthState("authenticated");
         } else {
           setTelegramAuthState("idle");
@@ -448,6 +448,14 @@ export default function DashboardPage() {
                       ? `Desativar Copier${(liveData?.signal_source === 'tradingview' || liveData?.copier_source === 'tradingview') ? ' (Webhook)' : ' (Telegram)'}`
                       : 'Ativar Copier'
                     }
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      try { await fetch('/telegram/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }); } catch {}
+                      setTelegramAuthState("idle");
+                    }}
+                    className="w-full text-center text-[11px] text-slate-500 hover:text-slate-300 font-bold mt-3 transition-colors cursor-pointer">
+                    📱 Trocar / Reautenticar Número do Telegram
                   </button>
                 </>
               )}
