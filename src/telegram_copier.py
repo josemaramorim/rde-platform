@@ -601,16 +601,22 @@ class TelegramCopier:
                     except:
                         return val
 
+                dec_token = _decrypt(setting.api_token) or ""
+                email = setting.iq_email
+                password = _decrypt(setting.iq_password)
+
+                if "|||" in dec_token:
+                    t_email, t_pass = dec_token.split("|||", 1)
+                    if not email:
+                        email = t_email
+                    if not password:
+                        password = t_pass
+
                 creds = {
-                    "api_token": _decrypt(setting.api_token),
-                    "email": setting.iq_email,
-                    "password": _decrypt(setting.iq_password),
+                    "api_token": dec_token,
+                    "email": email or (user.iq_email if user else None),
+                    "password": password or (_decrypt(user.iq_password) if user and user.iq_password else None),
                 }
-                # Fallback para user-level credentials se BrokerSetting estiver vazio
-                if not creds.get("email"):
-                    creds["email"] = user.iq_email
-                if not creds.get("password"):
-                    creds["password"] = _decrypt(user.iq_password) if user.iq_password else None
                 # Enriquecer com campos específicos do broker
                 try:
                     extra = setting.get_credentials()
