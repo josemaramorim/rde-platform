@@ -129,7 +129,7 @@ export function EstadoProvider({ children }: { children: ReactNode }) {
     try {
       const res = await fetch(`/user/estado`, {
         headers: { Authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(10000),
       });
       if (res.ok) {
         const data = await res.json();
@@ -147,7 +147,9 @@ export function EstadoProvider({ children }: { children: ReactNode }) {
           return next;
         });
       }
-    } catch (e) { console.warn("recarregar falhou:", e); } finally {
+    } catch (e) {
+      // Evita spam de warning em caso de backend reiniciando
+    } finally {
       setLoading(false);
     }
   }, []);
