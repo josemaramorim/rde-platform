@@ -1,0 +1,35 @@
+{
+  "name": "rde-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "export": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "android:init": "npx cap init \"RDE Frontend\" com.rde.platform --web-dir=out",
+    "android:add": "npx cap add android",
+    "android:sync": "npx cap copy android",
+    "android:open": "npx cap open android",
+    "android:build": "npm run export && npm run android:sync"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.3.0",
+    "next": "^16.2.4",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.3.0",
+    "@capacitor/cli": "^8.3.0",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
