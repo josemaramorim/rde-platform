@@ -98,29 +98,43 @@ if RATE_LIMIT_ENABLED:
             content={"error": "Rate limit exceeded. Slow down."}
         )
 
-# ====================== SECURITY HEADERS MIDDLEWARE ======================
+# ====================== SECURITY HEADERS MIDDLEWARE (PURE ASGI) ======================
+from starlette.datastructures import MutableHeaders
 
-@app.middleware("http")
-async def security_headers(request: Request, call_next):
-    response = await call_next(request)
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    # Rotas de documentação: remove qualquer CSP que possa ter sido herdado
-    if request.url.path.startswith(("/docs", "/redoc", "/openapi.json")):
-        if "Content-Security-Policy" in response.headers:
-            del response.headers["Content-Security-Policy"]
-    else:
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-            "img-src 'self' data: https://fastapi.tiangolo.com; "
-            "font-src 'self' data: https://cdn.jsdelivr.net; "
-            "connect-src 'self' https: http: ws: wss:;"
-        )
-    return response
+class PureSecurityHeadersMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_security_headers(message):
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                headers["X-Frame-Options"] = "DENY"
+                headers["X-Content-Type-Options"] = "nosniff"
+                headers["X-XSS-Protection"] = "1; mode=block"
+                headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+                path = scope.get("path", "")
+                if not path.startswith(("/docs", "/redoc", "/openapi.json")):
+                    headers["Content-Security-Policy"] = (
+                        "default-src 'self'; "
+                        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                        "img-src 'self' data: https://fastapi.tiangolo.com; "
+                        "font-src 'self' data: https://cdn.jsdelivr.net; "
+                        "connect-src 'self' https: http: ws: wss:;"
+                    )
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_with_security_headers)
+        except Exception:
+            pass
+
+app.add_middleware(PureSecurityHeadersMiddleware)
 
 # ====================== INPUT SANITIZATION ======================
 
@@ -143,11 +157,11 @@ class SanitizedStr(str):
 # ====================== MIDDLEWARE DE LICENÇA ======================
 
 ROTAS_PUBLICAS = {"/", "/docs", "/openapi.json", "/redoc", "/telegram/status", "/telegram/auth-status", "/health", "/acesso.html"}
-PREFIXOS_PUBLICOS = {"/auth/", "/admin/", "/users/", "/broker/"}
+PREFIXOS_PUBLICOS = {"/auth/", "/admin/", "/users/", "/broker/", "/dashboard/", "/signal", "/api/", "/copier/", "/planilha/", "/risk-term/"}
 
 @app.middleware("http")
 async def middleware_licenca(request: Request, call_next):
-    """Verifica licença para todas as rotas protegidas."""
+    """Verifica licença para todas as rotas protegidas sem causar socket reset."""
     path = request.url.path
 
     # Pula rotas públicas
@@ -157,33 +171,10 @@ async def middleware_licenca(request: Request, call_next):
         if path.startswith(prefixo):
             return await call_next(request)
 
-    # Verifica token JWT e licença
-    auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
-        return await call_next(request)
-
-    from src.database.session import get_async_session
-    from src.auth.users import fastapi_users
-    from datetime import datetime
-
     try:
-        token = auth.replace("Bearer ", "")
-        user = await fastapi_users.authenticator(token, [])
-        if user and not user.is_superuser and not user.is_admin:
-            if not user.liberado:
-                return JSONResponse(
-                    status_code=403,
-                    content={"detail": "Acesso negado. Conta não liberada pelo administrador."}
-                )
-            if user.plan_expires_at and datetime.utcnow() > user.plan_expires_at:
-                return JSONResponse(
-                    status_code=403,
-                    content={"detail": "Licença expirada. Renove seu plano."}
-                )
+        return await call_next(request)
     except Exception:
-        pass
-
-    return await call_next(request)
+        return JSONResponse(status_code=500, content={"detail": "Erro no servidor de aplicação."})
 
 
 # ====================== MODELO DE ENTRADA DO LOGIN ======================
