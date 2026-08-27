@@ -1238,6 +1238,16 @@ async def toggle_copier(
             return {"status": "started", "active": True, "broker": broker_name, "mode": "tradingview"}
 
         # ── Telegram mode ─────────────────────────────────────────
+        if os.path.exists(status_file):
+            try:
+                with open(status_file, "r") as sf:
+                    st_data = json.load(sf)
+                st_data["last_message"] = "Iniciando módulo de automação Telegram..."
+                with open(status_file, "w") as sf:
+                    json.dump(st_data, sf)
+            except Exception:
+                pass
+
         cmd = [sys.executable, "-m", "src.telegram_copier", "--user-id", str(user.id)]
         if broker_name:
             cmd += ["--broker", broker_name]
