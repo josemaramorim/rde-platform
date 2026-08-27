@@ -142,17 +142,22 @@ async def telegram_send_code(
         client = _create_client(user.id)
 
         try:
-            await asyncio.wait_for(client.connect(), timeout=10.0)
+            await asyncio.wait_for(client.connect(), timeout=25.0)
             if await client.is_user_authorized():
                 _update_user_live_status(user.id, f"Telegram já autenticado ({phone_digits}).")
                 return {"status": "already_authorized", "message": "Já autenticado no Telegram"}
-            sent = await asyncio.wait_for(client.send_code_request(phone_full), timeout=12.0)
+            sent = await asyncio.wait_for(client.send_code_request(phone_full), timeout=30.0)
             _update_user_live_status(user.id, f"Código enviado para Telegram ({phone_digits}). Digite o código no Dashboard.")
             return {
                 "status": "code_sent",
                 "message": "Código enviado para seu Telegram",
                 "phone_code_hash": sent.phone_code_hash,
             }
+        except asyncio.TimeoutError:
+            detail = "O Telegram demorou para responder na conexão inicial. Tente clicar em Enviar Código novamente."
+            logger.warning(f"Timeout ao conectar/enviar código Telegram para {phone_digits}")
+            _update_user_live_status(user.id, f"Erro no envio de código: {detail}", is_error=True)
+            raise HTTPException(status_code=400, detail=detail)
         except Exception as e:
             err_msg = str(e)
             logger.error(f"Erro ao enviar código Telegram: {err_msg}")
@@ -166,7 +171,7 @@ async def telegram_send_code(
             raise HTTPException(status_code=400, detail=detail)
         finally:
             try:
-                await asyncio.wait_for(client.disconnect(), timeout=3.0)
+                await asyncio.wait_for(client.disconnect(), timeout=5.0)
             except Exception:
                 pass
 
@@ -193,7 +198,7 @@ async def telegram_sign_in(
             logger.warning(f"Erro ao gravar telegram_phone no BD no sign-in: {db_err}")
 
         try:
-            await asyncio.wait_for(client.connect(), timeout=10.0)
+            await asyncio.wait_for(client.connect(), timeout=25.0)
             if await client.is_user_authorized():
                 _update_user_live_status(user.id, f"Telegram já autenticado ({phone_digits}).")
                 return {"status": "already_authorized", "message": "Já autenticado no Telegram"}
