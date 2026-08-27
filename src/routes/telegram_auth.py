@@ -48,6 +48,34 @@ def _cleanup_session(user_id: int):
                 pass
 
 
+def _update_user_live_status(user_id, message: str, is_error: bool = False):
+    import json
+    from datetime import datetime
+    status_file = f"live_status_{user_id}.json"
+    status_data = {}
+    if os.path.exists(status_file):
+        try:
+            with open(status_file, "r", encoding="utf-8") as sf:
+                status_data = json.load(sf)
+        except Exception:
+            status_data = {}
+
+    status_data["last_message"] = message
+    status_data["timestamp"] = datetime.now().strftime("%H:%M:%S")
+    try:
+        with open(status_file, "w", encoding="utf-8") as sf:
+            json.dump(status_data, sf, ensure_ascii=False)
+    except Exception:
+        pass
+
+    try:
+        with open("copier.log", "a", encoding="utf-8") as lf:
+            prefix = "ERROR" if is_error else "INFO"
+            lf.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]} - {prefix} - [TELEGRAM AUTH] {message}\n")
+    except Exception:
+        pass
+
+
 _user_locks: dict[str, asyncio.Lock] = {}
 _temp_user_sessions: dict[str, str] = {}
 
@@ -115,8 +143,10 @@ async def telegram_send_code(
         try:
             await asyncio.wait_for(client.connect(), timeout=10.0)
             if await client.is_user_authorized():
+                _update_user_live_status(user.id, f"Telegram já autenticado ({phone}).")
                 return {"status": "already_authorized", "message": "Já autenticado no Telegram"}
             sent = await asyncio.wait_for(client.send_code_request(phone), timeout=12.0)
+            _update_user_live_status(user.id, f"Código enviado para Telegram ({phone}). Digite o código no Dashboard.")
             return {
                 "status": "code_sent",
                 "message": "Código enviado para seu Telegram",
@@ -131,6 +161,7 @@ async def telegram_send_code(
                 detail = "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente."
             else:
                 detail = f"Falha no Telegram: {err_msg}"
+            _update_user_live_status(user.id, f"Erro no envio de código: {detail}", is_error=True)
             raise HTTPException(status_code=400, detail=detail)
         finally:
             try:
@@ -164,6 +195,7 @@ async def telegram_sign_in(
         try:
             await asyncio.wait_for(client.connect(), timeout=10.0)
             if await client.is_user_authorized():
+                _update_user_live_status(user.id, f"Telegram já autenticado ({phone}).")
                 return {"status": "already_authorized", "message": "Já autenticado no Telegram"}
 
             try:
@@ -173,10 +205,12 @@ async def telegram_sign_in(
                     await client.sign_in(phone, req.code)
             except SessionPasswordNeededError:
                 if not req.password:
+                    _update_user_live_status(user.id, "Senha 2FA necessária para o Telegram.")
                     return {"status": "password_needed", "message": "Senha 2FA necessária"}
                 await client.sign_in(password=req.password)
 
             me = await client.get_me()
+            _update_user_live_status(user.id, f"Telegram autenticado com sucesso ({phone})! Clique em ATIVAR COPIER.")
             return {
                 "status": "success",
                 "message": "Autenticado com sucesso no Telegram!",
@@ -184,12 +218,16 @@ async def telegram_sign_in(
                 "username": getattr(me, "username", None),
             }
         except PhoneCodeExpiredError:
+            _update_user_live_status(user.id, "Erro no Telegram: Código expirado.", is_error=True)
             return {"status": "code_expired", "message": "Código expirado. Solicite um novo."}
         except PhoneCodeInvalidError:
+            _update_user_live_status(user.id, "Erro no Telegram: Código inválido.", is_error=True)
             return {"status": "code_invalid", "message": "Código inválido. Tente novamente."}
         except Exception as e:
-            logger.error(f"Erro ao autenticar Telegram: {e}")
-            raise HTTPException(status_code=400, detail=str(e))
+            err_msg = str(e)
+            logger.error(f"Erro ao autenticar Telegram: {err_msg}")
+            _update_user_live_status(user.id, f"Erro na autenticação Telegram: {err_msg}", is_error=True)
+            raise HTTPException(status_code=400, detail=err_msg)
         finally:
             try:
                 await asyncio.wait_for(client.disconnect(), timeout=3.0)
@@ -214,4 +252,5 @@ async def telegram_logout(user: User = Depends(current_active_user)):
             except Exception:
                 pass
         _cleanup_session(user.id)
+        _update_user_live_status(user.id, "Telegram desconectado com sucesso.")
         return {"status": "logged_out", "message": "Desconectado do Telegram com sucesso"}
