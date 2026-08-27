@@ -397,10 +397,10 @@ export default function DashboardPage() {
                   <p className="text-xs text-slate-500 mb-4">
                     Autentique sua conta Telegram para ativar o copiador de sinais.
                   </p>
-                  <input type="tel" placeholder="+5511999999999"
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-3 text-sm outline-none focus:border-blue-500 mb-3"
+                  <input type="tel" placeholder="5511999999999"
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-3 text-sm outline-none focus:border-blue-500 mb-3 font-mono"
                     value={telegramPhone}
-                    onChange={e => setTelegramPhone(e.target.value)} />
+                    onChange={e => setTelegramPhone(e.target.value.replace(/\+/g, ''))} />
                   <button onClick={handleSendCode}
                     disabled={telegramAuthLoading || !telegramPhone.trim()}
                     className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black rounded-xl text-xs uppercase tracking-widest transition-all mb-3">

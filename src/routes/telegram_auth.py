@@ -102,9 +102,11 @@ async def telegram_auth_status(user: User = Depends(current_active_user)):
             await asyncio.wait_for(client.connect(), timeout=5.0)
             authorized = await client.is_user_authorized()
             me = await client.get_me() if authorized else None
+            me_phone = me.phone.lstrip("+") if (me and me.phone) else None
+            db_phone = user.telegram_phone.lstrip("+") if user.telegram_phone else None
             return {
                 "authenticated": authorized,
-                "phone": getattr(me, "phone", None) or user.telegram_phone,
+                "phone": me_phone or db_phone,
                 "username": getattr(me, "username", None),
             }
         except Exception as e:
@@ -125,12 +127,11 @@ async def telegram_send_code(
 ):
     user_lock = _get_user_lock(user.id)
     async with user_lock:
-        phone = req.phone.strip()
-        if not phone.startswith("+"):
-            phone = f"+{phone}"
+        phone_digits = req.phone.strip().lstrip("+")
+        phone_full = f"+{phone_digits}"
 
-        # Persiste o número dinâmico do usuário no banco de dados
-        user.telegram_phone = phone
+        # Persiste o número dinâmico do usuário SEM o '+' no banco de dados
+        user.telegram_phone = phone_digits
         db.add(user)
         try:
             await db.commit()
@@ -143,10 +144,10 @@ async def telegram_send_code(
         try:
             await asyncio.wait_for(client.connect(), timeout=10.0)
             if await client.is_user_authorized():
-                _update_user_live_status(user.id, f"Telegram já autenticado ({phone}).")
+                _update_user_live_status(user.id, f"Telegram já autenticado ({phone_digits}).")
                 return {"status": "already_authorized", "message": "Já autenticado no Telegram"}
-            sent = await asyncio.wait_for(client.send_code_request(phone), timeout=12.0)
-            _update_user_live_status(user.id, f"Código enviado para Telegram ({phone}). Digite o código no Dashboard.")
+            sent = await asyncio.wait_for(client.send_code_request(phone_full), timeout=12.0)
+            _update_user_live_status(user.id, f"Código enviado para Telegram ({phone_digits}). Digite o código no Dashboard.")
             return {
                 "status": "code_sent",
                 "message": "Código enviado para seu Telegram",
@@ -156,7 +157,7 @@ async def telegram_send_code(
             err_msg = str(e)
             logger.error(f"Erro ao enviar código Telegram: {err_msg}")
             if "invalid" in err_msg.lower() or "phone" in err_msg.lower():
-                detail = "Número de telefone inválido. Verifique se incluiu o DDD (Exemplo: +5511999999999)"
+                detail = "Número de telefone inválido. Verifique se incluiu o DDD (Exemplo: 5511999999999)"
             elif "flood" in err_msg.lower():
                 detail = "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente."
             else:
@@ -180,12 +181,11 @@ async def telegram_sign_in(
     async with user_lock:
         client = _create_client(user.id)
 
-        phone = req.phone.strip()
-        if not phone.startswith("+"):
-            phone = f"+{phone}"
+        phone_digits = req.phone.strip().lstrip("+")
+        phone_full = f"+{phone_digits}"
 
-        # Persiste o número dinâmico do usuário no banco de dados
-        user.telegram_phone = phone
+        # Persiste o número dinâmico do usuário SEM o '+' no banco de dados
+        user.telegram_phone = phone_digits
         db.add(user)
         try:
             await db.commit()
@@ -195,14 +195,14 @@ async def telegram_sign_in(
         try:
             await asyncio.wait_for(client.connect(), timeout=10.0)
             if await client.is_user_authorized():
-                _update_user_live_status(user.id, f"Telegram já autenticado ({phone}).")
+                _update_user_live_status(user.id, f"Telegram já autenticado ({phone_digits}).")
                 return {"status": "already_authorized", "message": "Já autenticado no Telegram"}
 
             try:
                 if req.phone_code_hash:
-                    await client.sign_in(phone, req.code, phone_code_hash=req.phone_code_hash)
+                    await client.sign_in(phone_full, req.code, phone_code_hash=req.phone_code_hash)
                 else:
-                    await client.sign_in(phone, req.code)
+                    await client.sign_in(phone_full, req.code)
             except SessionPasswordNeededError:
                 if not req.password:
                     _update_user_live_status(user.id, "Senha 2FA necessária para o Telegram.")
@@ -210,11 +210,12 @@ async def telegram_sign_in(
                 await client.sign_in(password=req.password)
 
             me = await client.get_me()
-            _update_user_live_status(user.id, f"Telegram autenticado com sucesso ({phone})! Clique em ATIVAR COPIER.")
+            me_phone = me.phone.lstrip("+") if (me and me.phone) else phone_digits
+            _update_user_live_status(user.id, f"Telegram autenticado com sucesso ({me_phone})! Clique em ATIVAR COPIER.")
             return {
                 "status": "success",
                 "message": "Autenticado com sucesso no Telegram!",
-                "phone": getattr(me, "phone", None),
+                "phone": me_phone,
                 "username": getattr(me, "username", None),
             }
         except PhoneCodeExpiredError:
