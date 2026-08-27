@@ -406,24 +406,26 @@ export default function DashboardPage() {
                     className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black rounded-xl text-xs uppercase tracking-widest transition-all mb-3">
                     {telegramAuthLoading ? "Enviando..." : "📨 Enviar Código"}
                   </button>
-                  <div className="border-t border-slate-800/80 pt-3 mt-1">
-                    <label className="text-[11px] font-bold text-slate-400 block mb-1">Código recebido no Telegram:</label>
-                    <input type="text" placeholder="Ex: 12345"
-                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-3 text-sm outline-none focus:border-emerald-500 mb-3"
-                      value={telegramCode}
-                      onChange={e => setTelegramCode(e.target.value)} />
-                    {telegramAuthState === "password_needed" && (
-                      <input type="password" placeholder="Senha 2FA"
-                        className="w-full bg-slate-950 border border-amber-500/30 text-white rounded-xl p-3 text-sm outline-none focus:border-amber-500 mb-3"
-                        value={telegramPassword}
-                        onChange={e => setTelegramPassword(e.target.value)} />
-                    )}
-                    <button onClick={handleSignIn}
-                      disabled={telegramAuthLoading || !telegramCode.trim()}
-                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black rounded-xl text-xs uppercase tracking-widest transition-all">
-                      {telegramAuthLoading ? "Autenticando..." : "🔐 Autenticar Código"}
-                    </button>
-                  </div>
+                  {(telegramAuthState === "code_sent" || telegramAuthState === "password_needed" || telegramCodeHash) && (
+                    <div className="border-t border-slate-800/80 pt-3 mt-1 animate-fadeIn">
+                      <label className="text-[11px] font-bold text-slate-400 block mb-1">Código recebido no Telegram:</label>
+                      <input type="text" placeholder="Ex: 12345"
+                        className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-3 text-sm outline-none focus:border-emerald-500 mb-3 font-mono"
+                        value={telegramCode}
+                        onChange={e => setTelegramCode(e.target.value)} />
+                      {telegramAuthState === "password_needed" && (
+                        <input type="password" placeholder="Senha 2FA"
+                          className="w-full bg-slate-950 border border-amber-500/30 text-white rounded-xl p-3 text-sm outline-none focus:border-amber-500 mb-3"
+                          value={telegramPassword}
+                          onChange={e => setTelegramPassword(e.target.value)} />
+                      )}
+                      <button onClick={handleSignIn}
+                        disabled={telegramAuthLoading || !telegramCode.trim()}
+                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black rounded-xl text-xs uppercase tracking-widest transition-all">
+                        {telegramAuthLoading ? "Autenticando..." : "🔐 Autenticar Código"}
+                      </button>
+                    </div>
+                  )}
                   {telegramAuthError && (
                     <div className="mt-3 p-3 rounded-xl text-xs font-bold border bg-rose-500/10 border-rose-500/20 text-rose-400">
                       {telegramAuthError}
