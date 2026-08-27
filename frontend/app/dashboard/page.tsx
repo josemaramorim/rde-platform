@@ -202,8 +202,12 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setTelegramCodeHash(data.phone_code_hash);
-        setTelegramAuthState("code_sent");
+        if (data.status === "already_authorized") {
+          setTelegramAuthState("authenticated");
+        } else {
+          setTelegramCodeHash(data.phone_code_hash);
+          setTelegramAuthState("code_sent");
+        }
       } else {
         setTelegramAuthError(errToText(data.detail) || "Erro ao enviar código");
       }
