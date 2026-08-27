@@ -1346,15 +1346,29 @@ class TelegramCopier:
             self.update_live_status("Erro: falha na autenticacao Telegram")
             return
         
-        self.is_running = True
-        self.update_live_status("Aguardando sinais da sala...")
+        # Lista canais monitorados no log de startup
+        try:
+            dialogs = await self.client.get_dialogs(limit=50)
+            channels_info = [f"'{d.name}'" for d in dialogs if d.is_channel or d.is_group]
+            if channels_info:
+                logger.info(f"[TELEGRAM] Monitorando {len(channels_info)} canais/grupos: {', '.join(channels_info[:10])}")
+        except Exception as e:
+            logger.debug(f"Falha ao listar canais: {e}")
 
         @self.client.on(events.NewMessage(chats=self.target_chats))
         async def handler(event):
             try:
                 text = event.message.text
                 if not text: return
-                logger.info(f"📨 MSG RECEBIDA: {text[:200]}")
+                
+                chat_title = "Chat Desconhecido"
+                try:
+                    chat = await event.get_chat()
+                    chat_title = getattr(chat, 'title', None) or getattr(chat, 'first_name', None) or f"ID:{event.chat_id}"
+                except Exception:
+                    chat_title = f"ID:{event.chat_id}"
+
+                logger.info(f"📨 MSG RECEBIDA de [{chat_title}]: {text[:200]}")
 
                 raw = text.upper()
                 if any(kw in raw for kw in ["WIN DE PRIMEIRA", "LOSS", "GANHO", "PERDA", "RESULTADO"]):
