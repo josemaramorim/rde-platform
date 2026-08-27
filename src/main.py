@@ -733,6 +733,15 @@ async def get_dashboard_live(
         except Exception:
             pass
 
+    def _parse_float(val, fallback=0.0):
+        if not val:
+            return fallback
+        try:
+            v = float(val)
+            return v if v > 0 else fallback
+        except Exception:
+            return fallback
+
     return {
         "copier_running": copier_running,
         "copier_source": copier_source,
@@ -748,8 +757,8 @@ async def get_dashboard_live(
             for s in active_settings
         ],
         "account_mode": live.get("account_mode") or broker_mode,
-        "balance": (live.get("current_balance") if live.get("current_balance") and float(live.get("current_balance")) > 0 else broker_balance),
-        "initial_balance": (live.get("initial_balance") if live.get("initial_balance") and float(live.get("initial_balance")) > 0 else broker_balance),
+        "balance": _parse_float(live.get("current_balance"), broker_balance),
+        "initial_balance": _parse_float(live.get("initial_balance"), broker_balance),
         "profit": live.get("profit", 0.0),
         "profit_pct": live.get("profit_pct", 0.0),
         "signals_today": live.get("signals_today", 0),

@@ -80,19 +80,30 @@ async def telegram_send_code(req: SendCodeRequest, user: User = Depends(current_
     async with _session_lock:
         _cleanup_session(user.id)
         client = _create_client(user.id)
+        phone = req.phone.strip()
+        if not phone.startswith("+"):
+            phone = f"+{phone}"
+
         try:
             await client.connect()
             if await client.is_user_authorized():
-                return {"status": "already_authorized", "message": "Ja autenticado"}
-            sent = await client.send_code_request(req.phone)
+                return {"status": "already_authorized", "message": "Já autenticado no Telegram"}
+            sent = await client.send_code_request(phone)
             return {
                 "status": "code_sent",
-                "message": "Codigo enviado para seu Telegram",
+                "message": "Código enviado para seu Telegram",
                 "phone_code_hash": sent.phone_code_hash,
             }
         except Exception as e:
-            logger.error(f"Erro ao enviar codigo: {e}")
-            raise HTTPException(status_code=400, detail=str(e))
+            err_msg = str(e)
+            logger.error(f"Erro ao enviar código Telegram: {err_msg}")
+            if "invalid" in err_msg.lower() or "phone" in err_msg.lower():
+                detail = "Número de telefone inválido. Verifique se incluiu o DDD (Exemplo: +5511999999999)"
+            elif "flood" in err_msg.lower():
+                detail = "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente."
+            else:
+                detail = f"Falha no Telegram: {err_msg}"
+            raise HTTPException(status_code=400, detail=detail)
         finally:
             try:
                 await client.disconnect()
@@ -105,16 +116,20 @@ async def telegram_sign_in(req: SignInRequest, user: User = Depends(current_acti
     async with _session_lock:
         _cleanup_session(user.id)
         client = _create_client(user.id)
+        phone = req.phone.strip()
+        if not phone.startswith("+"):
+            phone = f"+{phone}"
+
         try:
             await client.connect()
             if await client.is_user_authorized():
-                return {"status": "already_authorized", "message": "Ja autenticado"}
+                return {"status": "already_authorized", "message": "Já autenticado no Telegram"}
 
             try:
                 if req.phone_code_hash:
-                    await client.sign_in(req.phone, req.code, phone_code_hash=req.phone_code_hash)
+                    await client.sign_in(phone, req.code, phone_code_hash=req.phone_code_hash)
                 else:
-                    await client.sign_in(req.phone, req.code)
+                    await client.sign_in(phone, req.code)
             except SessionPasswordNeededError:
                 if not req.password:
                     return {"status": "password_needed", "message": "Senha 2FA necessaria"}
