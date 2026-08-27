@@ -671,23 +671,13 @@ async def get_dashboard_live(
         # Copier parado → preserva last_message para mostrar erro/motivo no dashboard
         live = {"last_message": last_message} if last_message else {}
 
-        # ── AUTO-SYNC: busca saldo real da corretora a cada 30s quando o copier está parado ──
-        if active_setting and active_setting.api_token:
-            last_sync = active_setting.balance_updated_at
-            should_sync = True
-            if last_sync:
-                age = (datetime.utcnow() - last_sync).total_seconds()
-                if age < 30:
-                    should_sync = False
-            if should_sync:
-                fresh = await _sync_broker_balance(user, db, active_setting)
-                if fresh is not None and fresh > 0:
-                    broker_balance = fresh
-                    live["current_balance"] = fresh
-                    live["initial_balance"] = live.get("initial_balance", fresh)
-                    live["broker"] = active_broker_name
-                    live["account_mode"] = "Demo" if active_setting.is_demo else "Real"
-                    live["timestamp"] = datetime.utcnow().strftime("%H:%M:%S")
+        # Copier parado → preserva saldo salvo do BD e mensagem anterior
+        if active_setting and active_setting.balance:
+            broker_balance = float(active_setting.balance)
+            live["current_balance"] = broker_balance
+            live["initial_balance"] = live.get("initial_balance", broker_balance)
+            live["broker"] = active_broker_name
+            live["account_mode"] = "Demo" if active_setting.is_demo else "Real"
     elif copier_broker and active_broker_name and copier_broker != active_broker_name:
         # Copier rodando com broker diferente do ativo → descarta dados
         live = {}
