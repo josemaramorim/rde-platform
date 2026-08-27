@@ -831,19 +831,26 @@ class TelegramCopier:
 
         if not symbol:
             # 2e. Fallback: qualquer palavra 4-10 letras que pareca ativo financeiro
-            skip_words = {"SINAL", "ENTRY", "ENTRADA", "EXPIRA", "EXPIRATION",
-                          "COMPR", "VENDA", "SELL", "BUY", "CALL", "PUT",
-                          "AGORA", "MARTINGALE", "NECESS", "RECOMEND",
-                          "ATENCAO", "OPERACAO", "FECHAMENTO", "ABERTURA",
-                          "ORDEM", "GANHO", "PERDA", "LUCRO", "PREJUIZO",
-                          "SESSAO", "META", "STOP", "WIN", "LOSS",
-                          "PAPEL", "MERCADO", "TENDENCIA", "SINALX",
-                          "TELEGRAM", "SUGESTAO", "ANALISE", "OPERAR",
-                          "RESULTADO", "CONFIRMA", "AGUARDE", "LIBERADO",
-                          "DIRECAO", "TIPO", "ATIVO", "PAR", "TEMPO",
-                          "MINUTO", "HORA", "DIA", "SEMANA", "MES",
-                          "ROBO", "BOT", "SISTEMA", "PLATAFORMA",
-                          "RECEITA", "FELIZ", "OBRIGADO", "VALEU"}
+            skip_words = {
+                "SINAL", "ENTRY", "ENTRADA", "EXPIRA", "EXPIRATION",
+                "COMPR", "VENDA", "SELL", "BUY", "CALL", "PUT",
+                "AGORA", "MARTINGALE", "NECESS", "RECOMEND",
+                "ATENCAO", "OPERACAO", "FECHAMENTO", "ABERTURA",
+                "ORDEM", "GANHO", "PERDA", "LUCRO", "PREJUIZO",
+                "SESSAO", "META", "STOP", "WIN", "LOSS",
+                "PAPEL", "MERCADO", "TENDENCIA", "SINALX",
+                "TELEGRAM", "SUGESTAO", "ANALISE", "OPERAR",
+                "RESULTADO", "CONFIRMA", "AGUARDE", "LIBERADO",
+                "DIRECAO", "TIPO", "ATIVO", "PAR", "TEMPO",
+                "MINUTO", "HORA", "DIA", "SEMANA", "MES",
+                "ROBO", "BOT", "SISTEMA", "PLATAFORMA",
+                "RECEITA", "FELIZ", "OBRIGADO", "VALEU",
+                "BINARY", "BINARIA", "BINARIAS", "DIGITAL", "DIGITAIS",
+                "OPTION", "OPTIONS", "TURBO", "FOREX", "CRYPTO", "CRIPTO",
+                "FUTURE", "FUTURES", "FUTURO", "FUTUROS", "PATRIOT", "PATRIOTA",
+                "CORRETORA", "CORRETORAS", "SINAIS", "CANAL", "GRUPO",
+                "VIP", "PREMIUM", "FREE", "GRATIS", "SUPORTE", "ADM", "ADMIN"
+            }
             for m in re.finditer(r'\b([A-Z]{4,10})\b', raw):
                 candidate = m.group(1)
                 if candidate not in skip_words and not candidate.startswith("EXPIR"):
