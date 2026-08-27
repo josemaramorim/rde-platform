@@ -53,11 +53,15 @@ def _create_client(user_id: int):
 
 @router.get("/auth-status")
 async def telegram_auth_status(user: User = Depends(current_active_user)):
-    async with _session_lock:
+    user_lock = _get_user_lock(user.id)
+    if user_lock.locked():
+        return {"authenticated": False, "message": "Operação em andamento"}
+    
+    async with user_lock:
         _cleanup_session(user.id)
         client = _create_client(user.id)
         try:
-            await client.connect()
+            await asyncio.wait_for(client.connect(), timeout=8.0)
             authorized = await client.is_user_authorized()
             me = await client.get_me() if authorized else None
             return {
@@ -70,14 +74,15 @@ async def telegram_auth_status(user: User = Depends(current_active_user)):
             return {"authenticated": False, "error": str(e)}
         finally:
             try:
-                await client.disconnect()
+                await asyncio.wait_for(client.disconnect(), timeout=3.0)
             except Exception:
                 pass
 
 
 @router.post("/send-code")
 async def telegram_send_code(req: SendCodeRequest, user: User = Depends(current_active_user)):
-    async with _session_lock:
+    user_lock = _get_user_lock(user.id)
+    async with user_lock:
         _cleanup_session(user.id)
         client = _create_client(user.id)
         phone = req.phone.strip()
@@ -85,10 +90,10 @@ async def telegram_send_code(req: SendCodeRequest, user: User = Depends(current_
             phone = f"+{phone}"
 
         try:
-            await client.connect()
+            await asyncio.wait_for(client.connect(), timeout=10.0)
             if await client.is_user_authorized():
                 return {"status": "already_authorized", "message": "Já autenticado no Telegram"}
-            sent = await client.send_code_request(phone)
+            sent = await asyncio.wait_for(client.send_code_request(phone), timeout=12.0)
             return {
                 "status": "code_sent",
                 "message": "Código enviado para seu Telegram",
@@ -106,7 +111,7 @@ async def telegram_send_code(req: SendCodeRequest, user: User = Depends(current_
             raise HTTPException(status_code=400, detail=detail)
         finally:
             try:
-                await client.disconnect()
+                await asyncio.wait_for(client.disconnect(), timeout=3.0)
             except Exception:
                 pass
 

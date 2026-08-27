@@ -199,6 +199,7 @@ export default function DashboardPage() {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ phone: telegramPhone.trim() }),
+        signal: AbortSignal.timeout(15000),
       });
       const data = await res.json();
       if (res.ok) {
@@ -211,8 +212,12 @@ export default function DashboardPage() {
       } else {
         setTelegramAuthError(errToText(data.detail) || "Erro ao enviar código");
       }
-    } catch {
-      setTelegramAuthError("Erro de conexão");
+    } catch (err: any) {
+      if (err?.name === "TimeoutError") {
+        setTelegramAuthError("Tempo limite atingido. Tente enviar o código novamente.");
+      } else {
+        setTelegramAuthError("Erro de conexão ao enviar o código.");
+      }
     } finally {
       setTelegramAuthLoading(false);
     }
