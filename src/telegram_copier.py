@@ -1346,6 +1346,9 @@ class TelegramCopier:
             self.update_live_status("Erro: falha na autenticacao Telegram")
             return
         
+        self.is_running = True
+        self.update_live_status("Aguardando sinais da sala...")
+
         # Lista canais monitorados no log de startup
         try:
             dialogs = await self.client.get_dialogs(limit=50)
