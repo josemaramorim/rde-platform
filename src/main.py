@@ -1547,13 +1547,22 @@ async def ai_profitable(
 
 
 # ====================== FRONTEND SPA FALLBACK ======================
-# Must be the LAST route so it only catches unhandled paths.
-_API_PREFIXES = (
-    "/api/", "/auth/", "/broker/", "/admin/", "/telegram/", "/ws/", "/docs",
-    "/openapi.json", "/redoc", "/health", "/risk-term/", "/user/", "/licenca/",
-    "/client-setup/", "/planilha/", "/tradingview/"
-)
+# ── Localização do diretório do frontend compilado ───────────────────────────
+import os as _os
+_frontend_candidates = [
+    _os.path.join(_os.getcwd(), "cliente", "frontend"),
+    _os.path.join(_os.getcwd(), "frontend", "out"),
+    _os.path.join(_os.path.dirname(__file__), "..", "cliente", "frontend"),
+    _os.path.join(_os.path.dirname(__file__), "..", "frontend", "out"),
+]
+_frontend_dir = next((d for d in _frontend_candidates if _os.path.isdir(d)), None)
+
 if _frontend_dir:
+    _API_PREFIXES = (
+        "/api/", "/auth/", "/broker/", "/admin/", "/telegram/", "/ws/", "/docs",
+        "/openapi.json", "/redoc", "/health", "/risk-term/", "/user/", "/licenca/",
+        "/client-setup/", "/planilha/", "/tradingview/"
+    )
     import mimetypes
     from fastapi.responses import FileResponse, JSONResponse
 
