@@ -8,6 +8,8 @@ from pydantic import BaseModel
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.errors import SessionPasswordNeededError, PhoneCodeExpiredError, PhoneCodeInvalidError
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.database.session import get_async_db
 from src.core.config import settings
 from src.auth.users import current_active_user
 from src.models.user import User
@@ -74,7 +76,7 @@ async def telegram_auth_status(user: User = Depends(current_active_user)):
             me = await client.get_me() if authorized else None
             return {
                 "authenticated": authorized,
-                "phone": getattr(me, "phone", None),
+                "phone": getattr(me, "phone", None) or user.telegram_phone,
                 "username": getattr(me, "username", None),
             }
         except Exception as e:
@@ -88,12 +90,24 @@ async def telegram_auth_status(user: User = Depends(current_active_user)):
 
 
 @router.post("/send-code")
-async def telegram_send_code(req: SendCodeRequest, user: User = Depends(current_active_user)):
+async def telegram_send_code(
+    req: SendCodeRequest, 
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_db)
+):
     user_lock = _get_user_lock(user.id)
     async with user_lock:
         phone = req.phone.strip()
         if not phone.startswith("+"):
             phone = f"+{phone}"
+
+        # Persiste o número dinâmico do usuário no banco de dados
+        user.telegram_phone = phone
+        db.add(user)
+        try:
+            await db.commit()
+        except Exception as db_err:
+            logger.warning(f"Erro ao gravar telegram_phone no BD: {db_err}")
 
         # StringSession temporaria em memoria: responde em < 500ms sem travamento de arquivo no Windows
         s_obj = StringSession()
@@ -128,7 +142,11 @@ async def telegram_send_code(req: SendCodeRequest, user: User = Depends(current_
 
 
 @router.post("/sign-in")
-async def telegram_sign_in(req: SignInRequest, user: User = Depends(current_active_user)):
+async def telegram_sign_in(
+    req: SignInRequest, 
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_db)
+):
     user_lock = _get_user_lock(user.id)
     async with user_lock:
         uid = str(user.id)
@@ -139,6 +157,14 @@ async def telegram_sign_in(req: SignInRequest, user: User = Depends(current_acti
         phone = req.phone.strip()
         if not phone.startswith("+"):
             phone = f"+{phone}"
+
+        # Persiste o número dinâmico do usuário no banco de dados
+        user.telegram_phone = phone
+        db.add(user)
+        try:
+            await db.commit()
+        except Exception as db_err:
+            logger.warning(f"Erro ao gravar telegram_phone no BD no sign-in: {db_err}")
 
         try:
             await asyncio.wait_for(client.connect(), timeout=8.0)

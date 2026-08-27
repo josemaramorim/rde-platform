@@ -1160,24 +1160,10 @@ class TelegramCopier:
         try:
             await asyncio.wait_for(self.client.connect(), timeout=15)
             if not await self.client.is_user_authorized():
-                phone = settings.TELEGRAM_PHONE or os.getenv("TELEGRAM_PHONE", "")
-                if phone:
-                    logger.info("Sessao nao autenticada. Enviando codigo para o telefone configurado...")
-                    await self.client.send_code_request(phone)
-                    logger.error(
-                        "Codigo enviado para o Telegram. "
-                        "Autentique manualmente com: "
-                        "python -c \"from telethon import TelegramClient; "
-                        "import asyncio; c = TelegramClient('rde_user_session', "
-                        f"{self.api_id}, '{self.api_hash}'); "
-                        f"asyncio.run(c.start(phone='{phone}'))\""
-                    )
-                else:
-                    logger.error(
-                        "Sessao Telegram nao autenticada. "
-                        "Defina TELEGRAM_PHONE no .env ou execute manualmente: "
-                        "python -m src.telegram_copier"
-                    )
+                logger.error(
+                    "Sessao Telegram nao autenticada. "
+                    "Por favor, conecte a sua conta Telegram diretamente pelo Dashboard da plataforma."
+                )
                 return False
             logger.info("Telegram autenticado com sucesso.")
             return True

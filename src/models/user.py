@@ -46,6 +46,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     stop_loss_pct: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     daily_meta_pct: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     telegram_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    telegram_phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     latency_protection: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Modo de Sinal: "telegram" ou "tradingview"
