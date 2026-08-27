@@ -6,6 +6,7 @@ import os
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from telethon import TelegramClient
+from telethon.sessions import StringSession
 from telethon.errors import SessionPasswordNeededError, PhoneCodeExpiredError, PhoneCodeInvalidError
 from src.core.config import settings
 from src.auth.users import current_active_user
@@ -47,6 +48,16 @@ def _cleanup_session(user_id: int):
                 pass
 
 
+_user_locks: dict[str, asyncio.Lock] = {}
+_temp_user_sessions: dict[str, str] = {}
+
+def _get_user_lock(user_id) -> asyncio.Lock:
+    uid = str(user_id)
+    if uid not in _user_locks:
+        _user_locks[uid] = asyncio.Lock()
+    return _user_locks[uid]
+
+
 def _create_client(user_id: int):
     return TelegramClient(_session_name(user_id), API_ID, API_HASH, system_version="4.16.30-vxRDE")
 
@@ -58,16 +69,15 @@ async def telegram_auth_status(user: User = Depends(current_active_user)):
         return {"authenticated": False, "message": "Operação em andamento"}
     
     async with user_lock:
-        _cleanup_session(user.id)
         client = _create_client(user.id)
         try:
-            await asyncio.wait_for(client.connect(), timeout=8.0)
+            await asyncio.wait_for(client.connect(), timeout=5.0)
             authorized = await client.is_user_authorized()
             me = await client.get_me() if authorized else None
             return {
                 "authenticated": authorized,
-                "phone": me.phone if me else None,
-                "username": me.username if me else None,
+                "phone": getattr(me, "phone", None),
+                "username": getattr(me, "username", None),
             }
         except Exception as e:
             logger.error(f"Erro ao verificar status de autenticacao: {e}")
@@ -83,17 +93,20 @@ async def telegram_auth_status(user: User = Depends(current_active_user)):
 async def telegram_send_code(req: SendCodeRequest, user: User = Depends(current_active_user)):
     user_lock = _get_user_lock(user.id)
     async with user_lock:
-        _cleanup_session(user.id)
-        client = _create_client(user.id)
         phone = req.phone.strip()
         if not phone.startswith("+"):
             phone = f"+{phone}"
 
+        # StringSession temporaria em memoria: responde em < 500ms sem travamento de arquivo no Windows
+        s_obj = StringSession()
+        client = TelegramClient(s_obj, API_ID, API_HASH, system_version="4.16.30-vxRDE")
+
         try:
-            await asyncio.wait_for(client.connect(), timeout=10.0)
+            await asyncio.wait_for(client.connect(), timeout=8.0)
             if await client.is_user_authorized():
                 return {"status": "already_authorized", "message": "Já autenticado no Telegram"}
-            sent = await asyncio.wait_for(client.send_code_request(phone), timeout=12.0)
+            sent = await asyncio.wait_for(client.send_code_request(phone), timeout=10.0)
+            _temp_user_sessions[str(user.id)] = client.session.save()
             return {
                 "status": "code_sent",
                 "message": "Código enviado para seu Telegram",
@@ -118,15 +131,19 @@ async def telegram_send_code(req: SendCodeRequest, user: User = Depends(current_
 
 @router.post("/sign-in")
 async def telegram_sign_in(req: SignInRequest, user: User = Depends(current_active_user)):
-    async with _session_lock:
-        _cleanup_session(user.id)
-        client = _create_client(user.id)
+    user_lock = _get_user_lock(user.id)
+    async with user_lock:
+        uid = str(user.id)
+        saved_str = _temp_user_sessions.get(uid, "")
+        s_obj = StringSession(saved_str) if saved_str else StringSession()
+        client = TelegramClient(s_obj, API_ID, API_HASH, system_version="4.16.30-vxRDE")
+
         phone = req.phone.strip()
         if not phone.startswith("+"):
             phone = f"+{phone}"
 
         try:
-            await client.connect()
+            await asyncio.wait_for(client.connect(), timeout=8.0)
             if await client.is_user_authorized():
                 return {"status": "already_authorized", "message": "Já autenticado no Telegram"}
 
@@ -137,36 +154,47 @@ async def telegram_sign_in(req: SignInRequest, user: User = Depends(current_acti
                     await client.sign_in(phone, req.code)
             except SessionPasswordNeededError:
                 if not req.password:
-                    return {"status": "password_needed", "message": "Senha 2FA necessaria"}
+                    _temp_user_sessions[uid] = client.session.save()
+                    return {"status": "password_needed", "message": "Senha 2FA necessária"}
                 await client.sign_in(password=req.password)
 
-            phone = None
-            username = None
+            # Transfere a sessao autorizada para o arquivo SQLite permanente do Copier
             try:
-                me = await client.get_me()
-                phone = me.phone
-                username = me.username
-            except Exception as e:
-                logger.warning(f"Nao foi possivel obter dados do usuario: {e}")
+                session_file = f"{_session_name(user.id)}.session"
+                if os.path.exists(session_file):
+                    try:
+                        os.remove(session_file)
+                    except Exception:
+                        pass
+                file_client = TelegramClient(_session_name(user.id), API_ID, API_HASH)
+                await asyncio.wait_for(file_client.connect(), timeout=5.0)
+                file_client.session.set_dc(client.session.dc_id, client.session.server_address, client.session.port)
+                file_client.session.auth_key = client.session.auth_key
+                file_client.session.save()
+                await asyncio.wait_for(file_client.disconnect(), timeout=3.0)
+            except Exception as tr_err:
+                logger.warning(f"Erro ao salvar arquivo de sessao SQLite: {tr_err}")
 
+            _temp_user_sessions.pop(uid, None)
+            me = await client.get_me()
             return {
                 "status": "success",
                 "message": "Autenticado com sucesso",
-                "phone": phone,
-                "username": username,
+                "phone": getattr(me, "phone", None),
+                "username": getattr(me, "username", None),
             }
         except PhoneCodeExpiredError:
-            return {"status": "code_expired", "message": "Codigo expirado. Solicite um novo."}
+            return {"status": "code_expired", "message": "Código expirado. Solicite um novo."}
         except PhoneCodeInvalidError:
-            return {"status": "code_invalid", "message": "Codigo invalido. Tente novamente."}
+            return {"status": "code_invalid", "message": "Código inválido. Tente novamente."}
         except Exception as e:
             logger.error(f"Erro ao autenticar: {e}")
             raise HTTPException(status_code=400, detail=str(e))
         finally:
             try:
-                await client.disconnect()
-            except Exception as e:
-                logger.warning(f"Erro ao desconectar cliente Telegram: {e}")
+                await asyncio.wait_for(client.disconnect(), timeout=3.0)
+            except Exception:
+                pass
 
 
 @router.post("/logout")
