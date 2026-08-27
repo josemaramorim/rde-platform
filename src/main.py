@@ -866,6 +866,7 @@ async def startup():
         for col_name, col_type, default in [
             ("signal_source", "VARCHAR(20)", "'telegram'"),
             ("mt4_api_key", "VARCHAR(64)", "NULL"),
+            ("telegram_phone", "VARCHAR(50)", "NULL"),
         ]:
             try:
                 await conn.execute(
