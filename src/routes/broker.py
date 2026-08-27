@@ -120,7 +120,8 @@ async def save_broker_settings(
 
     # Validar se o broker é permitido pelo plano do usuário
     # Superuser/Admin ignora restrições de plano
-    if not (full_user.is_superuser or full_user.is_admin):
+    is_admin_or_super = getattr(full_user, "is_superuser", False) or getattr(full_user, "is_admin", False)
+    if not is_admin_or_super:
         if full_user.plan and full_user.plan.allowed_brokers:
             allowed = full_user.plan.get_allowed_brokers()
             if allowed and broker_name_lower not in allowed:
@@ -131,7 +132,7 @@ async def save_broker_settings(
 
     # Check if entry already exists for this user/broker
     stmt = select(BrokerSetting).where(
-        BrokerSetting.user_id == user.id,
+        BrokerSetting.user_id == full_user.id,
         BrokerSetting.broker_name == broker_name_lower
     )
     result = await db.execute(stmt)
@@ -168,7 +169,7 @@ async def save_broker_settings(
         except ValueError:
             broker_type = BrokerType.IQOPTION
         new_setting = BrokerSetting(
-            user_id=user.id,
+            user_id=full_user.id,
             broker_type=broker_type,
             broker_name=broker_name_lower,
             api_token=enc_token,
@@ -185,10 +186,14 @@ async def save_broker_settings(
                     pass
         db.add(new_setting)
 
-    user.broker = broker_name_lower
-    db.add(user)
+    full_user.broker = broker_name_lower
+    if broker_name_lower in ("iqoption", "quotex") and settings.email and settings.password:
+        full_user.iq_email = settings.email
+        full_user.iq_password = encryption_service.encrypt(settings.password)
+
+    db.add(full_user)
     await db.commit()
-    return {"status": "success", "message": f"Settings for {settings.broker_name} saved securely."}
+    return {"status": "success", "message": f"Configurações da {settings.broker_name} salvas com sucesso!"}
 
 @router.get("/status", response_model=List[BrokerStatusResponse])
 async def get_broker_status(
