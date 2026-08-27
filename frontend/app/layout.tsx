@@ -16,8 +16,8 @@ export default function RootLayout({
 }>) {
   const pathname = usePathname();
   
-  // Verifica se a página atual é a de login
-  const isLoginPage = pathname === "/login";
+  // Verifica se a página atual é a de login ou raiz pública
+  const isLoginPage = pathname === "/" || pathname === "/login" || pathname === "/login.html" || pathname === "/forgot-password" || pathname === "/reset-password";
 
   return (
     <html lang="pt-BR" className="dark" suppressHydrationWarning>
@@ -29,7 +29,7 @@ export default function RootLayout({
           <SessionProvider>
             <div className="flex min-h-screen w-full relative">
               
-              {/* 👈 A Sidebar agora só renderiza se NÃO for a página de login */}
+              {/* A Sidebar só renderiza se NÃO for página de login/pública */}
               {!isLoginPage && <Sidebar />}
               
               {/* Container principal flexível */}
