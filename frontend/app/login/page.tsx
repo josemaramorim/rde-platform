@@ -58,7 +58,7 @@ function LoginForm() {
       formData.append("username", email);
       formData.append("password", password);
 
-      const response = await fetch("/auth/jwt/login", {
+      const response = await fetch(`${API_URL}/auth/jwt/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -98,7 +98,7 @@ function LoginForm() {
     setMagicLoading(true);
 
     try {
-      const response = await fetch(`/auth/magic-login`, {
+      const response = await fetch(`${API_URL}/auth/magic-login`, {
         method: "POST",
         headers: { 
           "Accept": "application/json",

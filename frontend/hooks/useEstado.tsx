@@ -127,7 +127,7 @@ export function EstadoProvider({ children }: { children: ReactNode }) {
     const token = getToken();
     if (!token) { setLoading(false); return; }
     try {
-      const res = await fetch(`/user/estado`, {
+      const res = await fetch(`${API_URL}/user/estado`, {
         headers: { Authorization: `Bearer ${token}` },
         signal: AbortSignal.timeout(10000),
       });
@@ -158,7 +158,7 @@ export function EstadoProvider({ children }: { children: ReactNode }) {
     const token = getToken();
     if (!token) return;
     try {
-      const res = await fetch(`/broker/refresh-balance`, {
+      const res = await fetch(`${API_URL}/broker/refresh-balance`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         signal: AbortSignal.timeout(15000),
@@ -283,7 +283,7 @@ export function EstadoProvider({ children }: { children: ReactNode }) {
       return next;
     });
     try {
-      const res = await fetch(`/user/preferences`, {
+      const res = await fetch(`${API_URL}/user/preferences`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(campos),
@@ -311,7 +311,7 @@ export function EstadoProvider({ children }: { children: ReactNode }) {
     });
     
     try {
-      await fetch(`/user/salvar-capital?capital=${capital}`, {
+      await fetch(`${API_URL}/user/salvar-capital?capital=${capital}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });

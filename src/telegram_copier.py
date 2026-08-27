@@ -1402,18 +1402,42 @@ class TelegramCopier:
         self.is_running = True
         self.update_live_status("Aguardando sinais da sala...")
 
-        # Lista canais monitorados no log de startup
+        # Resolução e Validação dos Canais Alvo
+        monitored_names = []
         try:
-            dialogs = await self.client.get_dialogs(limit=50)
-            channels_info = [f"'{d.name}'" for d in dialogs if d.is_channel or d.is_group]
-            if channels_info:
-                logger.info(f"[TELEGRAM] Monitorando {len(channels_info)} canais/grupos: {', '.join(channels_info[:10])}")
+            dialogs = await self.client.get_dialogs(limit=100)
+            group_name_cfg = (settings.TELEGRAM_GROUP_NAME or "").strip().lower()
+            
+            # Se target_chats não foi definido ou o ID não foi encontrado nos dialogs, busca pelo nome
+            if self.target_chats:
+                for d in dialogs:
+                    if d.id in self.target_chats:
+                        monitored_names.append(f"'{d.name}' (ID: {d.id})")
+            
+            # Fallback inteligente: se não encontrou pelo ID mas tem TELEGRAM_GROUP_NAME, busca pelo nome
+            if not monitored_names and group_name_cfg:
+                for d in dialogs:
+                    if (d.is_channel or d.is_group) and (group_name_cfg in d.name.lower() or d.name.lower() in group_name_cfg):
+                        self.target_chats = [d.id]
+                        monitored_names.append(f"'{d.name}' (ID: {d.id})")
+                        logger.info(f"[TELEGRAM] Canal resolvido com sucesso pelo nome: '{d.name}' (ID: {d.id})")
+                        break
         except Exception as e:
-            logger.debug(f"Falha ao listar canais: {e}")
+            logger.debug(f"Falha ao validar canais: {e}")
+
+        if self.target_chats and monitored_names:
+            logger.info(f"🎯 [TELEGRAM] Monitorando EXCLUSIVAMENTE {len(monitored_names)} canal(is): {', '.join(monitored_names)}")
+        elif self.target_chats:
+            logger.info(f"🎯 [TELEGRAM] Monitorando canal(is) configurado(s) por ID: {self.target_chats}")
+        else:
+            logger.warning("⚠️ [TELEGRAM] AVISO: Nenhum canal alvo específico configurado. Recomendado definir TELEGRAM_CHAT_ID ou TELEGRAM_GROUP_NAME no .env.")
 
         @self.client.on(events.NewMessage(chats=self.target_chats))
         async def handler(event):
             try:
+                # Trava de segurança: garante que nunca processe mensagem fora dos canais alvo
+                if self.target_chats and event.chat_id not in self.target_chats:
+                    return
                 text = event.message.text
                 if not text: return
                 

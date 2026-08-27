@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { APP_VERSION } from "@/lib/constants";
+import { APP_VERSION, API_URL } from "@/lib/constants";
 
 interface UpdateInfo {
   has_update: boolean;
@@ -18,7 +18,7 @@ export default function VersionCheck() {
   useEffect(() => {
     const check = async () => {
       try {
-        const res = await fetch("/api/check-update", { signal: AbortSignal.timeout(10000) });
+        const res = await fetch(`${API_URL}/api/check-update`, { signal: AbortSignal.timeout(10000) });
         if (res.ok) {
           const data: UpdateInfo = await res.json();
           data.current_version = APP_VERSION;

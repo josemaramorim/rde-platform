@@ -16,9 +16,13 @@ build/
 *.log
 trades.log
 
-# Database
+# Database & Runtime State
 *.db
 *.sqlite3
+*_stats.json
+live_status_*.json
+live_operations_*.json
+copier.pid
 
 # Node / React
 node_modules/
@@ -120,4 +124,5 @@ node_modules/
 rde-frontend_old_FAT32/
 
 # Documentação local (não vai para o git)
-docs/
+docs/*
+!docs/ARQUITETURA_FRONTEND_PRODUCAO.md

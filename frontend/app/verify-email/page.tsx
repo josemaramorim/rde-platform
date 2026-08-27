@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { API_URL } from "@/lib/constants";
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
@@ -16,7 +17,7 @@ function VerifyEmailContent() {
       return;
     }
 
-    fetch("/auth/verify", {
+    fetch(`${API_URL}/auth/verify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),

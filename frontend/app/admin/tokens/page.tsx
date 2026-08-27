@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useEstado } from "@/hooks/useEstado";
+import { API_URL } from "@/lib/constants";
 
 interface LicencaResumo {
   total: number;
@@ -50,7 +51,7 @@ export default function AdminTokensPage() {
     setLoading(true);
     setError("");
     try {
-      let url = "/admin/tokens";
+      let url = `${API_URL}/admin/tokens`;
       if (statusFilter) url += `?status=${statusFilter}`;
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
@@ -71,7 +72,7 @@ export default function AdminTokensPage() {
   const fetchResumo = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await fetch("/admin/licencas/resumo", {
+      const res = await fetch(`${API_URL}/admin/licencas/resumo`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) setResumo(await res.json());
@@ -93,7 +94,7 @@ export default function AdminTokensPage() {
     setGenerating(true);
     setGeneratedTokens([]);
     try {
-      const res = await fetch("/admin/tokens/gerar", {
+      const res = await fetch(`${API_URL}/admin/tokens/gerar`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -125,7 +126,7 @@ export default function AdminTokensPage() {
   const handleRevoke = async (tokenId: string) => {
     if (!token || !confirm("Revogar este token? O cliente será bloqueado.")) return;
     try {
-      const res = await fetch(`/admin/tokens/${tokenId}/revogar`, {
+      const res = await fetch(`${API_URL}/admin/tokens/${tokenId}/revogar`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });

@@ -9,6 +9,10 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:--1001804981654}
+      - TELEGRAM_GROUP_NAME=${TELEGRAM_GROUP_NAME:-R&DE🇧🇷}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-7533153324:AAFnjAwlQcLQfJeSFNOPeg0iVI7F97LDzzI}
     volumes:
       # Persiste o banco SQLite local fora do container
       - ./rde_local.db:/app/rde_local.db

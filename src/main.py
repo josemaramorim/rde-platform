@@ -1582,42 +1582,6 @@ if _frontend_dir:
   if (window._rde_toast_injected) return;
   window._rde_toast_injected = true;
 
-  // ─── Sidebar Nav Interceptor ───────────────────────────────────────────────
-  // Intercepts clicks on sidebar <a> links after React renders them.
-  // Uses window.location.href so the static HTML files load correctly on the
-  // FastAPI server, without touching Next.js router internals (avoids hydration
-  // errors and "Carregando portal..." black screen).
-  (function() {
-    var NAV_HREFS = ['/dashboard','/planilha','/estatisticas','/risco','/carteira','/configuracao','/perfil','/setup','/admin','/login','/'];
-    function patchSidebarLinks(root) {
-      var links = (root || document).querySelectorAll('aside a[href], nav a[href]');
-      links.forEach(function(a) {
-        if (a._rde_patched) return;
-        a._rde_patched = true;
-        var href = a.getAttribute('href');
-        if (!href || href.startsWith('http') || href.startsWith('mailto') || href.startsWith('#')) return;
-        a.addEventListener('click', function(e) {
-          e.preventDefault();
-          e.stopPropagation();
-          window.location.href = href;
-        }, true);
-      });
-    }
-    // Patch existing links + observe DOM for when React renders the sidebar
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function() { patchSidebarLinks(); });
-    } else {
-      patchSidebarLinks();
-    }
-    var observer = new MutationObserver(function(mutations) {
-      mutations.forEach(function(m) {
-        if (m.addedNodes.length) patchSidebarLinks();
-      });
-    });
-    observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
-  })();
-  // ──────────────────────────────────────────────────────────────────────────
-
   window.alert = function(msg) {
     var container = document.getElementById('rde-toast-container');
     if (!container) {
@@ -1663,6 +1627,9 @@ if _frontend_dir:
         "Pragma": "no-cache",
         "Expires": "0",
     }
+    _IMMUTABLE_CACHE_HEADERS = {
+        "Cache-Control": "public, max-age=31536000, immutable",
+    }
 
     def _render_html(filepath: str) -> HTMLResponse:
         try:
@@ -1696,7 +1663,14 @@ if _frontend_dir:
             if fp.endswith(".html"):
                 return _render_html(fp)
             ct = mimetypes.guess_type(fp)[0] or ("text/plain; charset=utf-8" if fp.endswith(".txt") else "application/octet-stream")
-            file_headers = dict(_NO_CACHE_HEADERS) if (fp.endswith(".js") or fp.endswith(".html") or fp.endswith(".txt")) else {"Cache-Control": "public, max-age=31536000, immutable"}
+            # Arquivos imutáveis do Next.js com hash (_next/static/) devem ter cache permanente
+            norm_fp = fp.replace("\\", "/")
+            if "_next/static/" in norm_fp:
+                file_headers = dict(_IMMUTABLE_CACHE_HEADERS)
+            elif fp.endswith(".html") or fp.endswith(".txt"):
+                file_headers = dict(_NO_CACHE_HEADERS)
+            else:
+                file_headers = {"Cache-Control": "public, max-age=86400"}
             return FileResponse(fp, media_type=ct, headers=file_headers)
 
         # 2. Mapeamento de atalho para arquivos .__PAGE__.txt do Next.js (ex: configuracao/__next.configuracao.__PAGE__.txt -> configuracao/__next.configuracao/__PAGE__.txt)

@@ -62,7 +62,7 @@ export default function SetupPage() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/admin-server-config", {
+    fetch(`${API_URL}/api/admin-server-config`, {
       headers: { Authorization: `Bearer ${getToken()}` },
     })
       .then(r => r.json())
@@ -77,7 +77,7 @@ export default function SetupPage() {
     setSavingAdmin(true);
     setAdminMsg(null);
     try {
-      const r = await fetch("/api/admin-server-config", {
+      const r = await fetch(`${API_URL}/api/admin-server-config`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({ admin_server_url: adminUrlInput.trim() }),
@@ -99,7 +99,7 @@ export default function SetupPage() {
   const fetchTelegramStatus = () => {
     const token = getToken();
     if (!token) return;
-    fetch("/telegram/status", {
+    fetch(`${API_URL}/telegram/status`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.ok ? r.json() : null)
@@ -115,7 +115,7 @@ export default function SetupPage() {
   const handleSaveCurrency = async () => {
     setSavingCurrency(true);
     try {
-      const r = await fetch("/user/currency", {
+      const r = await fetch(`${API_URL}/user/currency`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({ currency }),
@@ -175,7 +175,7 @@ export default function SetupPage() {
         }
       }
 
-      const saveRes = await fetch("/broker/settings", {
+      const saveRes = await fetch(`${API_URL}/broker/settings`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
@@ -193,7 +193,7 @@ export default function SetupPage() {
 
       (async () => {
         try {
-          const testRes = await fetch("/broker/test-connection", {
+          const testRes = await fetch(`${API_URL}/broker/test-connection`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({ broker_name: selectedBroker }),
@@ -240,13 +240,13 @@ export default function SetupPage() {
           if (derivExpiry.trim()) payload.deriv_token_expiry = derivExpiry.trim();
         }
       }
-      await fetch("/broker/settings", {
+      await fetch(`${API_URL}/broker/settings`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
       });
 
-      await fetch("/broker/activate", {
+      await fetch(`${API_URL}/broker/activate`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ broker_name: selectedBroker }),
@@ -269,7 +269,7 @@ export default function SetupPage() {
     const t = getToken();
     if (!t) return;
     try {
-      const res = await fetch("/auth/ativar-token", {
+      const res = await fetch(`${API_URL}/auth/ativar-token`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
         body: JSON.stringify({ codigo: tokenCode.trim() }),

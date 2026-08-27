@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useEstado } from '@/hooks/useEstado';
+import { API_URL } from '@/lib/constants';
 
 function EquityCurve() {
   const data = React.useMemo(() => {
@@ -74,7 +75,7 @@ function Page() {
         fetched.current = true;
         setLoading(true);
         try {
-          const res = await fetch('/stats/performance', {
+          const res = await fetch(`${API_URL}/stats/performance`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',

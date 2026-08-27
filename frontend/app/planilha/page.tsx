@@ -180,7 +180,7 @@ export default function PlanilhaPage() {
         localStorage.setItem("rde_brokers_conectados", JSON.stringify(savedBrokers));
 
         // Ativar como broker principal no servidor
-        await fetch("/broker/activate", {
+        await fetch(`${API_URL}/broker/activate`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ broker_name: brokerId }),
@@ -219,7 +219,7 @@ export default function PlanilhaPage() {
     if (!b?.connected) return;
     const token = getToken();
     try {
-      await fetch("/broker/activate", {
+      await fetch(`${API_URL}/broker/activate`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ broker_name: brokerId }),

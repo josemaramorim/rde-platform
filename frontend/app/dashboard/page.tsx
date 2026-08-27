@@ -58,8 +58,17 @@ export default function DashboardPage() {
   const [telegramAuthLoading, setTelegramAuthLoading] = useState(false);
   const [telegramAuthError, setTelegramAuthError] = useState<string | null>(null);
   const [telegramCodeHash, setTelegramCodeHash] = useState<string | null>(null);
+  const [clientTime, setClientTime] = useState<string>('--:--:--');
 
   const requisitando = useRef(false);
+
+  useEffect(() => {
+    setClientTime(new Date().toLocaleTimeString('pt-BR'));
+    const timer = setInterval(() => {
+      setClientTime(new Date().toLocaleTimeString('pt-BR'));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Verificar termo de risco ao carregar
   useEffect(() => {
@@ -84,7 +93,7 @@ export default function DashboardPage() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const response = await fetch('/dashboard/live', {
+      const response = await fetch(`${API_URL}/dashboard/live`, {
         method: 'GET',
         headers,
       });
@@ -116,7 +125,7 @@ export default function DashboardPage() {
   // Checar status de autenticação da sessão do Telegram ao carregar o Dashboard
   useEffect(() => {
     if (!token) return;
-    fetch("/telegram/auth-status", {
+    fetch(`${API_URL}/telegram/auth-status`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(r => r.ok ? r.json() : null)
@@ -147,7 +156,7 @@ export default function DashboardPage() {
     try {
       const novoEstado = !liveData?.copier_running;
 
-      const response = await fetch('/copier/toggle', {
+      const response = await fetch(`${API_URL}/copier/toggle`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -181,7 +190,7 @@ export default function DashboardPage() {
 
   const fetchTelegramAuthStatus = () => {
     if (!token) return;
-    fetch("/telegram/auth-status", {
+    fetch(`${API_URL}/telegram/auth-status`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.ok ? r.json() : null)
@@ -200,7 +209,7 @@ export default function DashboardPage() {
     setTelegramCode("");
     setTelegramPassword("");
     try {
-      const res = await fetch("/telegram/send-code", {
+      const res = await fetch(`${API_URL}/telegram/send-code`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ phone: telegramPhone.trim() }),
@@ -232,7 +241,7 @@ export default function DashboardPage() {
     setTelegramAuthLoading(true);
     setTelegramAuthError(null);
     try {
-      const res = await fetch("/telegram/sign-in", {
+      const res = await fetch(`${API_URL}/telegram/sign-in`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -479,7 +488,7 @@ export default function DashboardPage() {
                   </button>
                   <button 
                     onClick={async () => {
-                      try { await fetch('/telegram/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }); } catch {}
+                      try { await fetch(`${API_URL}/telegram/logout`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } }); } catch {}
                       setTelegramAuthState("idle");
                     }}
                     className="w-full text-center text-[11px] text-slate-500 hover:text-slate-300 font-bold mt-3 transition-colors cursor-pointer">
@@ -548,7 +557,7 @@ export default function DashboardPage() {
           {/* Footer com Horário do Servidor e Fuso Horário de São Paulo (UTC-3) */}
           <div className="mt-8 p-4 bg-slate-900/40 border border-slate-800/80 rounded-xl text-center text-xs text-slate-400 font-mono space-y-1">
             <p suppressHydrationWarning>
-              🕒 Horário do Servidor: <span className="text-emerald-400 font-bold">{liveData?.server_time || liveData?.timestamp || new Date().toLocaleTimeString('pt-BR')}</span>
+              🕒 Horário do Servidor: <span className="text-emerald-400 font-bold" suppressHydrationWarning>{liveData?.server_time || liveData?.timestamp || clientTime}</span>
               <span className="text-slate-400 ml-2">({liveData?.server_timezone || "America/Sao_Paulo (UTC-3)"})</span>
             </p>
             <p className="text-[11px] text-slate-500">Fuso Horário Padrão de Execução: America/Sao_Paulo (UTC-3)</p>
