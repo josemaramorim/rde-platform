@@ -147,6 +147,9 @@ class Settings(BaseSettings):
         description="URL do servidor admin para validação de licença (ex: https://admin-server.com). Usado quando RDE_PROFILE=client"
     )
 
+    # ==================== FUSO HORÁRIO / TIMEZONE ====================
+    TIMEZONE: str = Field(default="America/Sao_Paulo", description="Fuso horário do servidor (padrão São Paulo UTC-3)")
+
     # ==================== LOGGING ====================
     LOG_LEVEL: str = Field(default="INFO", description="Logging level")
 

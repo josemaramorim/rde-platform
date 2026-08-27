@@ -38,6 +38,8 @@ interface DashboardLiveData {
   meta_hit_today?: boolean;
   auto_lock_meta?: boolean;
   meta_hit_date?: string | null;
+  server_time?: string;
+  server_timezone?: string;
 }
 
 export default function DashboardPage() {
@@ -543,9 +545,13 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="mt-8 p-4 bg-slate-900/20 border border-slate-900 rounded-xl text-center text-xs text-slate-600 font-mono">
-            <p suppressHydrationWarning>Sincronismo Global: {liveData?.timestamp && liveData.timestamp !== '-' ? liveData.timestamp : new Date().toLocaleTimeString('pt-BR')}</p>
+          {/* Footer com Horário do Servidor e Fuso Horário de São Paulo (UTC-3) */}
+          <div className="mt-8 p-4 bg-slate-900/40 border border-slate-800/80 rounded-xl text-center text-xs text-slate-400 font-mono space-y-1">
+            <p suppressHydrationWarning>
+              🕒 Horário do Servidor: <span className="text-emerald-400 font-bold">{liveData?.server_time || liveData?.timestamp || new Date().toLocaleTimeString('pt-BR')}</span>
+              <span className="text-slate-400 ml-2">({liveData?.server_timezone || "America/Sao_Paulo (UTC-3)"})</span>
+            </p>
+            <p className="text-[11px] text-slate-500">Fuso Horário Padrão de Execução: America/Sao_Paulo (UTC-3)</p>
           </div>
       </div>
     </div>

@@ -235,7 +235,11 @@ class TelegramCopier:
             "win_rate": sm.get("win_rate", 0),
             "gale_level": sm.get("gale_level", 0),
             "last_message": last_msg,
-            "timestamp": datetime.now().strftime("%H:%M:%S"),
+            "timestamp": (
+                datetime.now(__import__("zoneinfo").ZoneInfo("America/Sao_Paulo")).strftime("%H:%M:%S")
+                if hasattr(__import__("zoneinfo"), "ZoneInfo")
+                else datetime.now().strftime("%H:%M:%S")
+            ),
             "meta_hit_today": self.meta_hit_today,
             "auto_lock_meta": self.auto_lock_meta,
             "meta_hit_date": self.meta_hit_date,

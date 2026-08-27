@@ -773,6 +773,14 @@ async def get_dashboard_live(
         "daily_progress_pct": live.get("daily_progress_pct", 0),
         "current_session": live.get("current_session", 1),
         "session_entries_used": live.get("session_entries_used", 0),
+        "server_time": (
+            __import__("datetime").datetime.now(
+                __import__("zoneinfo").ZoneInfo(getattr(settings, "TIMEZONE", "America/Sao_Paulo"))
+            ).strftime("%H:%M:%S")
+            if hasattr(__import__("zoneinfo"), "ZoneInfo")
+            else __import__("datetime").datetime.now().strftime("%H:%M:%S")
+        ),
+        "server_timezone": f"{getattr(settings, 'TIMEZONE', 'America/Sao_Paulo')} (UTC-3)",
         "session_profit": live.get("session_profit", 0),
         "session_target": live.get("session_target", 0),
     }

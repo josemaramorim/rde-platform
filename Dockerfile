@@ -16,7 +16,8 @@ FROM python:3.13-slim
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app \
+    TZ=America/Sao_Paulo
 
 WORKDIR /app
 
@@ -25,6 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     libffi-dev \
     libssl-dev \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
