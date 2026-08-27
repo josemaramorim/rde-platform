@@ -1009,6 +1009,7 @@ class TelegramCopier:
         )
 
         try:
+            self._balance_before_trade = self.broker.get_balance() or self.current_balance
             result = None
             for attempt in range(3):
                 try:
@@ -1084,7 +1085,6 @@ class TelegramCopier:
                 return
 
             contract_id = result.get("contract_id") or result.get("order_id")
-            self._balance_before_trade = self.current_balance
 
             if self.broker_name in ("deriv", "deriv_demo", "deriv_real"):
                 from src.broker.deriv import DerivBroker
@@ -1101,11 +1101,18 @@ class TelegramCopier:
 
             # Verifica resultado
             trade_status = self.broker.get_contract_status(contract_id)
+            
+            # Se status incerto (error), aguarda 2s para atualizar saldo e tenta novamente
+            if trade_status == "error":
+                logger.warning(f"Status da ordem {contract_id} incerto. Aguardando saldo...")
+                await asyncio.sleep(2)
+                trade_status = self.broker.get_contract_status(contract_id)
+
             self.current_balance = self.broker.get_balance()
 
-            # Se status incerto (error), usa saldo real como arbitro final
+            # Se status ainda incerto (error), usa a variação do saldo como arbitro final
             if trade_status == "error":
-                logger.warning(f"Status da ordem {contract_id} incerto. Usando saldo como arbitro.")
+                logger.warning(f"Status da ordem {contract_id} permaneceu incerto. Usando variação de saldo como arbitro.")
                 if self.current_balance > self._balance_before_trade:
                     trade_status = "won"
                 else:

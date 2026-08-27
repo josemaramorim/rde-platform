@@ -458,58 +458,74 @@ class IQOptionBroker(BaseBroker):
         return self.api.get_balance()
 
     def get_contract_status(self, order_id: str) -> str:
-        """Verifica resultado da ordem. Usa get_optioninfo_v2 com timeout."""
+        """Verifica resultado da ordem no IQ Option de forma precisa."""
+        if not order_id or not self._is_alive():
+            return "error"
+
         try:
-            time.sleep(3)
-            if not self._is_alive():
-                return "error"
+            order_num = int(order_id)
+        except Exception:
+            order_num = None
+
+        # 1. Tenta check_win_v3 (Binarias / Turbo)
+        if order_num is not None:
+            try:
+                async_orders = getattr(self.api, "async_orders", {})
+                if order_num in async_orders or str(order_num) in async_orders:
+                    net_profit = self.api.check_win_v3(order_num)
+                    if isinstance(net_profit, (int, float)):
+                        return "won" if net_profit > 0 else "lost"
+            except Exception as e:
+                logger.debug(f"check_win_v3 falhou para {order_id}: {e}")
+
+        # 2. Tenta check_win_digital_v2 (Digitais)
+        if order_num is not None:
+            try:
+                ok, net_profit = self.api.check_win_digital_v2(order_num)
+                if ok and isinstance(net_profit, (int, float)):
+                    return "won" if net_profit > 0 else "lost"
+            except Exception as e:
+                logger.debug(f"check_win_digital_v2 falhou para {order_id}: {e}")
+
+        # 3. Consulta closed_options recentes
+        try:
             api = self.api.api
-            # Tenta ate 3 vezes
-            for _ in range(3):
-                try:
-                    api.get_options_v2_data = None
-                    api.get_options_v2(30, "binary,turbo")
-                    deadline = time.time() + 6
-                    while time.time() < deadline:
-                        data = getattr(api, 'get_options_v2_data', None)
-                        if data is not None:
-                            break
-                        time.sleep(0.5)
-                    if data is None:
-                        time.sleep(2)
-                        continue
-                    closed = data.get("msg", {}).get("closed_options", [])
-                    for opt in closed:
-                        raw_ids = opt.get("id", [])
-                        if isinstance(raw_ids, list):
-                            if int(order_id) not in [int(i) for i in raw_ids]:
-                                continue
-                        elif str(raw_ids) != str(order_id):
-                            continue
+            api.get_options_v2_data = None
+            api.get_options_v2(50, "binary,turbo")
+            deadline = time.time() + 5
+            while time.time() < deadline:
+                data = getattr(api, 'get_options_v2_data', None)
+                if data is not None:
+                    break
+                time.sleep(0.5)
+
+            if data and isinstance(data, dict) and "msg" in data:
+                closed = data.get("msg", {}).get("closed_options", [])
+                for opt in closed:
+                    raw_ids = opt.get("id", [])
+                    matched = False
+                    if order_num is not None and isinstance(raw_ids, list):
+                        matched = order_num in [int(i) for i in raw_ids if str(i).isdigit()]
+                    elif str(raw_ids) == str(order_id):
+                        matched = True
+
+                    if matched:
                         win = opt.get("win", "equal")
                         amount = float(opt.get("amount", 0))
                         win_amount = float(opt.get("win_amount", 0))
                         profit = win_amount - amount if win != "equal" else 0
                         return "won" if profit > 0 else "lost"
-                except Exception:
-                    time.sleep(2)
-                    continue
-            logger.warning(f"Ordem {order_id} nao encontrada nos closed_options apos 3 tentativas")
-            return "error"
-        except Exception:
-            return "error"
+        except Exception as e:
+            logger.debug(f"closed_options check falhou: {e}")
+
+        logger.warning(f"Não foi possível determinar o resultado da ordem IQ Option {order_id}")
+        return "error"
 
     async def async_get_contract_status(self, order_id: str) -> str:
-        """Versao async: nao bloqueia o event loop."""
+        """Versao async: executa get_contract_status num executor para nao bloquear o event loop."""
         import asyncio
-        try:
-            await asyncio.sleep(62)
-            result = self.api.check_win_v3(order_id)
-            if isinstance(result, (int, float)):
-                return "won" if result > 0 else "lost"
-            return "error"
-        except Exception:
-            return "error"
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self.get_contract_status, order_id)
 
     def disconnect(self):
         self._fully_disconnect()
