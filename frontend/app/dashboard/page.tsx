@@ -347,21 +347,25 @@ export default function DashboardPage() {
             <div className="mb-8 bg-slate-900/60 border border-slate-800 rounded-xl p-6">
               <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Corretoras Ativas ({liveData?.active_brokers?.length || 0})</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {liveData?.active_brokers?.map((b) => (
-                  <div key={b.broker} className={`rounded-xl p-4 border flex items-center justify-between ${
-                    b.connected ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-slate-950 border-slate-800'
-                  }`}>
-                    <div>
-                      <p className="text-white font-black text-xs uppercase tracking-widest">{b.broker}</p>
-                      <p className={`text-[10px] font-bold mt-1 ${b.connected ? 'text-emerald-400' : 'text-slate-500'}`}>
-                        {b.connected ? `🟢 ${b.mode}` : '🔴 Offline'}
-                      </p>
+                {liveData?.active_brokers?.map((b) => {
+                  const isMainBroker = (b.broker.toLowerCase() === (estado?.broker_ativo || liveData?.broker || "iqoption").toLowerCase());
+                  const brokerBal = (isMainBroker && Number(bancaCalculada) > 0) ? Number(bancaCalculada) : Number(b.balance ?? 0);
+                  return (
+                    <div key={b.broker} className={`rounded-xl p-4 border flex items-center justify-between ${
+                      b.connected ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-slate-950 border-slate-800'
+                    }`}>
+                      <div>
+                        <p className="text-white font-black text-xs uppercase tracking-widest">{b.broker}</p>
+                        <p className={`text-[10px] font-bold mt-1 ${b.connected ? 'text-emerald-400' : 'text-slate-500'}`}>
+                          {b.connected ? `🟢 ${b.mode}` : '🔴 Offline'}
+                        </p>
+                      </div>
+                      <span className="text-sm font-black text-slate-100 font-mono">
+                        {formatMoney(brokerBal, currency)}
+                      </span>
                     </div>
-                    <span className="text-sm font-black text-slate-100 font-mono">
-                      {formatMoney(Number(b.balance ?? 0), currency)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

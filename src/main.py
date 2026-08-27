@@ -732,22 +732,27 @@ async def get_dashboard_live(
         except Exception:
             return fallback
 
+    final_balance = _parse_float(live.get("current_balance"), broker_balance)
+
+    active_brokers_list = []
+    for s in active_settings:
+        is_primary = (s.broker_name.lower() == broker_name.lower())
+        b_val = final_balance if (is_primary and final_balance > 0) else float(s.balance or 0)
+        active_brokers_list.append({
+            "broker": s.broker_name,
+            "balance": float(b_val),
+            "mode": "Demo" if s.is_demo else "Real",
+            "connected": True,
+        })
+
     return {
         "copier_running": copier_running,
         "copier_source": copier_source,
         "signal_source": live.get("source") or u.signal_source or "telegram",
         "broker": broker_name,
-        "active_brokers": [
-            {
-                "broker": s.broker_name,
-                "balance": float(s.balance or 0),
-                "mode": "Demo" if s.is_demo else "Real",
-                "connected": True,
-            }
-            for s in active_settings
-        ],
+        "active_brokers": active_brokers_list,
         "account_mode": live.get("account_mode") or broker_mode,
-        "balance": _parse_float(live.get("current_balance"), broker_balance),
+        "balance": final_balance,
         "initial_balance": _parse_float(live.get("initial_balance"), broker_balance),
         "profit": live.get("profit", 0.0),
         "profit_pct": live.get("profit_pct", 0.0),
