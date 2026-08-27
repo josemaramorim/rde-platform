@@ -867,6 +867,7 @@ async def startup():
             ("signal_source", "VARCHAR(20)", "'telegram'"),
             ("mt4_api_key", "VARCHAR(64)", "NULL"),
             ("telegram_phone", "VARCHAR(50)", "NULL"),
+            ("telegram_session_string", "TEXT", "NULL"),
         ]:
             try:
                 await conn.execute(

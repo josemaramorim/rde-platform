@@ -1169,15 +1169,62 @@ class TelegramCopier:
             self.update_live_status(f"Erro: {e}")
             self._order_in_progress = False
 
-    async def _authenticate_telegram(self):
-        """Verifica se o Telegram esta autenticado."""
+    async def _get_db_session_string(self) -> str | None:
+        if not self._user_id:
+            return None
         try:
-            await asyncio.wait_for(self.client.connect(), timeout=15)
+            from src.database.session import get_async_session
+            from src.models.user import User
+            from sqlalchemy import select
+            async for db in get_async_session():
+                res = await db.execute(select(User.telegram_session_string).where(User.id == self._user_id))
+                return res.scalar_one_or_none()
+        except Exception as e:
+            logger.warning(f"Falha ao carregar telegram_session_string do BD: {e}")
+            return None
+
+    async def _clear_db_session_string(self):
+        if not self._user_id:
+            return
+        try:
+            from src.database.session import get_async_session
+            from src.models.user import User
+            from sqlalchemy import select
+            async for db in get_async_session():
+                res = await db.execute(select(User).where(User.id == self._user_id))
+                u = res.scalar_one_or_none()
+                if u:
+                    u.telegram_session_string = None
+                    db.add(u)
+                    await db.commit()
+                    logger.info(f"StringSession invalida/revogada limpa no banco de dados para usuario {self._user_id}.")
+        except Exception as e:
+            logger.warning(f"Falha ao limpar telegram_session_string no BD: {e}")
+
+    async def _authenticate_telegram(self):
+        """Verifica se o Telegram esta autenticado via StringSession do BD ou sessao local."""
+        db_session_str = None
+        try:
+            db_session_str = await self._get_db_session_string()
+            if db_session_str:
+                from telethon.sessions import StringSession
+                logger.info(f"Carregando StringSession do banco de dados para usuario {self._user_id}...")
+                self.client = TelegramClient(
+                    StringSession(db_session_str),
+                    self.api_id,
+                    self.api_hash,
+                    auto_reconnect=True,
+                    connection_retries=5
+                )
+
+            await asyncio.wait_for(self.client.connect(), timeout=25)
             if not await self.client.is_user_authorized():
                 logger.error(
-                    "Sessao Telegram nao autenticada. "
+                    "Sessao Telegram nao autenticada ou revogada. "
                     "Por favor, conecte a sua conta Telegram diretamente pelo Dashboard da plataforma."
                 )
+                if self._user_id and db_session_str:
+                    await self._clear_db_session_string()
                 return False
             logger.info("Telegram autenticado com sucesso.")
             return True
@@ -1186,6 +1233,8 @@ class TelegramCopier:
             return False
         except Exception as e:
             logger.error(f"Erro ao autenticar Telegram: {e}")
+            if self._user_id and db_session_str:
+                await self._clear_db_session_string()
             return False
 
     def _write_pid(self):

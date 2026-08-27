@@ -86,31 +86,49 @@ def _get_user_lock(user_id) -> asyncio.Lock:
     return _user_locks[uid]
 
 
-def _create_client(user_id: int):
-    return TelegramClient(_session_name(user_id), API_ID, API_HASH, system_version="4.16.30-vxRDE")
+def _create_client(session_str: str | None = None):
+    session = StringSession(session_str) if session_str else StringSession()
+    return TelegramClient(session, API_ID, API_HASH, system_version="4.16.30-vxRDE")
 
 
 @router.get("/auth-status")
-async def telegram_auth_status(user: User = Depends(current_active_user)):
+async def telegram_auth_status(
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_db)
+):
     user_lock = _get_user_lock(user.id)
     if user_lock.locked():
         return {"authenticated": False, "message": "Operação em andamento"}
     
     async with user_lock:
-        client = _create_client(user.id)
-        try:
-            await asyncio.wait_for(client.connect(), timeout=5.0)
-            authorized = await client.is_user_authorized()
-            me = await client.get_me() if authorized else None
-            me_phone = me.phone.lstrip("+") if (me and me.phone) else None
+        session_str = user.telegram_session_string
+        if not session_str:
             db_phone = user.telegram_phone.lstrip("+") if user.telegram_phone else None
-            return {
-                "authenticated": authorized,
-                "phone": me_phone or db_phone,
-                "username": getattr(me, "username", None),
-            }
+            return {"authenticated": False, "phone": db_phone}
+
+        client = _create_client(session_str)
+        try:
+            await asyncio.wait_for(client.connect(), timeout=10.0)
+            authorized = await client.is_user_authorized()
+            if authorized:
+                me = await client.get_me()
+                me_phone = me.phone.lstrip("+") if (me and me.phone) else (user.telegram_phone.lstrip("+") if user.telegram_phone else None)
+                return {
+                    "authenticated": True,
+                    "phone": me_phone,
+                    "username": getattr(me, "username", None),
+                }
+            else:
+                user.telegram_session_string = None
+                db.add(user)
+                await db.commit()
+                _update_user_live_status(user.id, "Sessão Telegram revogada. Solicite novo código.", is_error=True)
+                return {"authenticated": False, "phone": user.telegram_phone}
         except Exception as e:
-            logger.error(f"Erro ao verificar status de autenticacao: {e}")
+            logger.warning(f"Sessão Telegram inválida/expirada: {e}")
+            user.telegram_session_string = None
+            db.add(user)
+            await db.commit()
             return {"authenticated": False, "error": str(e)}
         finally:
             try:
@@ -130,7 +148,6 @@ async def telegram_send_code(
         phone_digits = req.phone.strip().lstrip("+")
         phone_full = f"+{phone_digits}"
 
-        # Persiste o número dinâmico do usuário SEM o '+' no banco de dados
         user.telegram_phone = phone_digits
         db.add(user)
         try:
@@ -138,15 +155,31 @@ async def telegram_send_code(
         except Exception as db_err:
             logger.warning(f"Erro ao gravar telegram_phone no BD: {db_err}")
 
-        _cleanup_session(user.id)
-        client = _create_client(user.id)
+        # Se ja possui StringSession valida salva no banco
+        if user.telegram_session_string:
+            try:
+                test_client = _create_client(user.telegram_session_string)
+                await asyncio.wait_for(test_client.connect(), timeout=10.0)
+                if await test_client.is_user_authorized():
+                    await test_client.disconnect()
+                    _update_user_live_status(user.id, f"Telegram já autenticado ({phone_digits}).")
+                    return {"status": "already_authorized", "message": "Já autenticado no Telegram"}
+                await test_client.disconnect()
+            except Exception:
+                user.telegram_session_string = None
+                db.add(user)
+                await db.commit()
+
+        # Cria nova StringSession limpa em memória para receber o código
+        client = _create_client()
 
         try:
             await asyncio.wait_for(client.connect(), timeout=25.0)
-            if await client.is_user_authorized():
-                _update_user_live_status(user.id, f"Telegram já autenticado ({phone_digits}).")
-                return {"status": "already_authorized", "message": "Já autenticado no Telegram"}
             sent = await asyncio.wait_for(client.send_code_request(phone_full), timeout=30.0)
+            
+            # Salva o progresso temporario da StringSession
+            _temp_user_sessions[str(user.id)] = client.session.save()
+            
             _update_user_live_status(user.id, f"Código enviado para Telegram ({phone_digits}). Digite o código no Dashboard.")
             return {
                 "status": "code_sent",
@@ -184,12 +217,9 @@ async def telegram_sign_in(
 ):
     user_lock = _get_user_lock(user.id)
     async with user_lock:
-        client = _create_client(user.id)
-
         phone_digits = req.phone.strip().lstrip("+")
         phone_full = f"+{phone_digits}"
 
-        # Persiste o número dinâmico do usuário SEM o '+' no banco de dados
         user.telegram_phone = phone_digits
         db.add(user)
         try:
@@ -197,9 +227,17 @@ async def telegram_sign_in(
         except Exception as db_err:
             logger.warning(f"Erro ao gravar telegram_phone no BD no sign-in: {db_err}")
 
+        # Recupera a StringSession temporaria iniciada no send-code
+        temp_session = _temp_user_sessions.get(str(user.id))
+        client = _create_client(temp_session)
+
         try:
             await asyncio.wait_for(client.connect(), timeout=25.0)
             if await client.is_user_authorized():
+                saved_session = client.session.save()
+                user.telegram_session_string = saved_session
+                db.add(user)
+                await db.commit()
                 _update_user_live_status(user.id, f"Telegram já autenticado ({phone_digits}).")
                 return {"status": "already_authorized", "message": "Já autenticado no Telegram"}
 
@@ -210,9 +248,17 @@ async def telegram_sign_in(
                     await client.sign_in(phone_full, req.code)
             except SessionPasswordNeededError:
                 if not req.password:
+                    _temp_user_sessions[str(user.id)] = client.session.save()
                     _update_user_live_status(user.id, "Senha 2FA necessária para o Telegram.")
                     return {"status": "password_needed", "message": "Senha 2FA necessária"}
                 await client.sign_in(password=req.password)
+
+            # SUCESSO! Salva a StringSession no banco de dados permanentemente
+            saved_session = client.session.save()
+            user.telegram_session_string = saved_session
+            db.add(user)
+            await db.commit()
+            _temp_user_sessions.pop(str(user.id), None)
 
             me = await client.get_me()
             me_phone = me.phone.lstrip("+") if (me and me.phone) else phone_digits
@@ -236,27 +282,33 @@ async def telegram_sign_in(
             raise HTTPException(status_code=400, detail=err_msg)
         finally:
             try:
-                await asyncio.wait_for(client.disconnect(), timeout=3.0)
+                await asyncio.wait_for(client.disconnect(), timeout=5.0)
             except Exception:
                 pass
 
 
 @router.post("/logout")
-async def telegram_logout(user: User = Depends(current_active_user)):
+async def telegram_logout(
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_db)
+):
     user_lock = _get_user_lock(user.id)
     async with user_lock:
-        client = _create_client(user.id)
-        try:
-            await asyncio.wait_for(client.connect(), timeout=5.0)
-            if await client.is_user_authorized():
-                await client.log_out()
-        except Exception as e:
-            logger.warning(f"Erro ao deslogar Telegram: {e}")
-        finally:
+        if user.telegram_session_string:
+            client = _create_client(user.telegram_session_string)
             try:
-                await asyncio.wait_for(client.disconnect(), timeout=3.0)
-            except Exception:
-                pass
-        _cleanup_session(user.id)
-        _update_user_live_status(user.id, "Telegram desconectado com sucesso.")
+                await asyncio.wait_for(client.connect(), timeout=10.0)
+                if await client.is_user_authorized():
+                    await client.log_out()
+            except Exception as e:
+                logger.warning(f"Erro ao deslogar Telegram: {e}")
+            finally:
+                try:
+                    await asyncio.wait_for(client.disconnect(), timeout=3.0)
+                except Exception:
+                    pass
+        
+        user.telegram_session_string = None
+        db.add(user)
+        await db.commit()
         return {"status": "logged_out", "message": "Desconectado do Telegram com sucesso"}
