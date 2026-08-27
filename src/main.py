@@ -748,8 +748,8 @@ async def get_dashboard_live(
             for s in active_settings
         ],
         "account_mode": live.get("account_mode") or broker_mode,
-        "balance": live.get("current_balance") or broker_balance,
-        "initial_balance": live.get("initial_balance") or broker_balance,
+        "balance": (live.get("current_balance") if live.get("current_balance") and float(live.get("current_balance")) > 0 else broker_balance),
+        "initial_balance": (live.get("initial_balance") if live.get("initial_balance") and float(live.get("initial_balance")) > 0 else broker_balance),
         "profit": live.get("profit", 0.0),
         "profit_pct": live.get("profit_pct", 0.0),
         "signals_today": live.get("signals_today", 0),

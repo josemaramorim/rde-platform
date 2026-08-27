@@ -253,6 +253,14 @@ export default function DashboardPage() {
     fetchTelegramAuthStatus();
   }, [token]);
 
+  const bancaCalculada = (liveData?.balance && liveData.balance > 0)
+    ? liveData.balance
+    : (estado?.broker_balance && estado.broker_balance > 0)
+    ? estado.broker_balance
+    : (liveData?.active_brokers?.[0]?.balance && liveData.active_brokers[0].balance > 0)
+    ? liveData.active_brokers[0].balance
+    : (liveData?.balance ?? 0);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Conteúdo Principal */}
@@ -287,7 +295,7 @@ export default function DashboardPage() {
             <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-6">
               <div className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">Banca Atual</div>
               <div className="text-2xl font-black text-slate-100 font-mono">
-                    {formatMoney(Number(liveData?.balance ?? 0), currency)}
+                    {formatMoney(Number(bancaCalculada), currency)}
               </div>
               <div className={`text-xs font-bold mt-2 ${(liveData?.profit ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {liveData?.profit_pct ? `${Number(liveData.profit_pct).toFixed(2)}%` : '0.00%'} hoje
