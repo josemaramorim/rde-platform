@@ -271,7 +271,7 @@ export function EstadoProvider({ children }: { children: ReactNode }) {
         refreshTimerRef.current = null;
       }
     };
-  }, [refreshBalance, loading]);
+  }, [refreshBalance]);
 
   const salvar = useCallback(async (campos: Partial<EstadoUsuario>): Promise<boolean> => {
     const token = getToken();

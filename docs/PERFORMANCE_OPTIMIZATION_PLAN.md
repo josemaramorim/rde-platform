@@ -1,52 +1,118 @@
-# Plano de Otimização de Performance e Carregamento Rápido — RDE Platform
+# Plano de Otimização de Performance e Alta Concorrência — RDE Platform
 
 ## 📋 Resumo Executivo
-Este documento contém a análise detalhada de performance da **RDE Platform** em ambiente de Produção (Docker / VPS / ICP Panel) e o roteiro arquitetural para transformar o tempo de carregamento inicial do Dashboard de ~60 segundos (durante cold starts/primeiro acesso pós-redeploy) para **menos de 1 segundo (carregamento instantâneo)**.
+Este documento contém o plano técnico e arquitetural para transformar a **RDE Platform** em um sistema de altíssimo desempenho, escalabilidade e carregamento instantâneo (< 1 segundo) tanto em **Desenvolvimento** quanto em **Produção (Docker / VPS / ICP Panel)**.
 
 ---
 
-## 🔍 1. Diagnóstico Técnico de Causa Raiz da Lentidão
+## 🔍 1. Diagnóstico de Gargalos Atuais
 
-### 1.1 Cold Start do Container Python (Uvicorn / FastAPI)
-- **Problema:** Quando o container Docker é reiniciado ou sofre um `Redeploy`, na primeira requisição HTTP recebida pelo Uvicorn, o Python precisa carregar em memória todas as bibliotecas pesadas (`Telethon`, `IQOptionAPI`, `SQLAlchemy`, `AioSQLite`, `Pydantic`, etc.).
-- **Impacto:** A primeira resposta do servidor demora para processar até que todos os módulos estejam compilados em bytecode na memória RAM.
+### 1.1 Banco de Dados: SQLite vs. Concorrência Real
+- **Problema Atual:** O SQLite opera por bloqueio de arquivo em disco. Quando o Telegram Copier ou múltiplos workers do Uvicorn executam escritas simultâneas, as consultas de leitura (como carregar a Dashboard ou trocar de aba no Sidebar) ficam em fila aguardando liberação do arquivo.
+- **Solução:** Migração completa para **PostgreSQL 16 (com `asyncpg`)**.
 
-### 1.2 Entrega de Chunks Estáticos via HTTP/1.1 Direto na Porta `:8000`
-- **Problema:** Ao acessar o sistema diretamente pela porta da aplicação `http://vps10755.panel.icontainer.run:8000`, o navegador estabelece uma conexão HTTP/1.1 simples diretamente com o servidor Uvicorn em Python.
-- **Impacto:** O Next.js gera dezenas de arquivos de script `.js` e `.css` otimizados. Em HTTP/1.1 sem proxy Nginx/HTTP/2, o navegador baixa esses arquivos **sequencialmente** (um de cada vez) através de uma porta não otimizada, criando uma fila de download de dezenas de segundos em conexões de VPS.
+### 1.2 Bloqueio Síncrono de Corretoras (`/broker/refresh-balance`)
+- **Problema Atual:** Ao consultar o saldo, o backend tenta se conectar diretamente na IQ Option via sockets síncronos e `time.sleep(2)`. Isso segura a thread do worker por 3 a 8 segundos. Enquanto o worker está ocupado, qualquer clique no frontend fica travado em fila.
+- **Solução:** Desacoplar o saldo — o endpoint responde instantaneamente (< 5ms) com o saldo persistido, enquanto atualizações em tempo real são sincronizadas em background.
 
-### 1.3 Bloqueio I/O de Banco de Dados (SQLite em Volume Docker)
-- **Problema:** O banco de dados SQLite (`rde_local.db`) está montado em um volume de disco virtual no Docker.
-- **Impacto:** Operações de escrita concorrentes do Telegram Copier em segundo plano travam o arquivo de banco durante a leitura inicial das configurações do usuário, fazendo a rota `/dashboard/live` aguardar a liberação do lock de arquivo.
+### 1.3 Entrega de Chunks do Next.js sem Proxy HTTP/2
+- **Problema Atual:** O Uvicorn (servidor Python) entrega scripts estáticos via HTTP/1.1 sequencial na porta `:8000`.
+- **Solução:** Proxy Nginx entregando arquivos estáticos via **HTTP/2 multiplexado** com cache imutável (`Cache-Control: public, max-age=31536000, immutable`).
+
+### 1.4 Handshake IPv6 no Telegram
+- **Problema Atual:** O Telethon tentava resolver servidores do Telegram por IPv6 antes do IPv4 em containers Linux, gerando atrasos de 30s.
+- **Solução:** Forçar `use_ipv6=False` e reaproveitar instâncias do cliente.
 
 ---
 
-## 🛠️ 2. Plano de Ação e Implementação Futura
+## 🛠️ 2. Fases de Implementação do Plano
 
-### ⚡ Fase 1: Proxy Reverso com Nginx, SSL e HTTP/2 (Ganho: ~80% de Velocidade)
-Configurar o Nginx ou o Proxy do ICP Panel para atuar na frente do container FastAPI:
+```
+[Fase 1: PostgreSQL] ➔ [Fase 2: Backend Assíncrono] ➔ [Fase 3: Nginx HTTP/2] ➔ [Fase 4: Frontend Otimizado]
+```
 
-1. **Ativação de HTTP/2:**
-   - Permite que o navegador baixe dezenas de scripts JavaScript do Next.js **simultaneamente em uma única conexão TCP**, reduzindo o tempo de download do frontend de 30s para <0.5s.
-2. **Cache HTTP Agressivo para Arquivos Estáticos (`/_next/static/`):**
-   - Configurar cabeçalhos de cache `Cache-Control: public, max-age=31536000, immutable` para os chunks do Next.js. O navegador salvará o frontend no disco do cliente e nunca mais precisará baixá-lo do servidor.
-3. **Compressão Brotli / GZip no Proxy Nginx:**
-   - Reduz o tamanho transmitido do frontend em até 75%.
+---
 
-#### Exemplo de Bloco de Configuração Nginx (`/etc/nginx/sites-available/rde`):
+### 🐘 Fase 1: Migração para PostgreSQL (Dev & Produção)
+
+#### Por que o PostgreSQL faz toda a diferença?
+1. **Concorrência Real (MVCC):** Leituras e escritas ilimitadas em paralelo sem nenhuma trava de arquivo.
+2. **Pool de Conexões Assíncrono:** O SQLAlchemy com driver `asyncpg` gerencia pool de 20 a 60 conexões de alto throughput.
+3. **Ambiente Idêntico (Dev e Prod):** Elimina divergências entre Windows/Linux e garante paridade de dados.
+
+#### Dependências no `requirements.txt`:
+```txt
+asyncpg>=0.29.0
+psycopg2-binary>=2.9.9
+```
+
+#### Configuração no `docker-compose.yml` e `docker-compose.icp.yml`:
+```yaml
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rde-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rde_user
+      POSTGRES_PASSWORD: rde_secure_password
+      POSTGRES_DB: rde_platform
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - rde-net
+
+  rde-backend:
+    depends_on:
+      - postgres
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://rde_user:rde_secure_password@postgres:5432/rde_platform
+
+volumes:
+  postgres_data:
+```
+
+---
+
+### ⚡ Fase 2: Desbloqueio do Backend e APIs de Corretora / Telegram
+
+1. **Saldo Imediato e Não-Bloqueante (`src/routes/broker.py`):**
+   - Retornar o saldo mais recente salvo no PostgreSQL ou memória cache em **< 5ms**.
+   - Atualizar a conexão com a IQ Option / Quotex exclusivamente em tarefas assíncronas de segundo plano.
+2. **Otimização do Telegram Client (`src/routes/telegram_auth.py`):**
+   - Manter conexões ativas persistentes com `use_ipv6=False` e timeouts de socket em 10s.
+
+---
+
+### ⚡ Fase 3: Proxy Reverso Nginx com HTTP/2 e Cache Imutável
+
+Configuração do Nginx para servir o Next.js estático e repassar a API ao FastAPI:
+
 ```nginx
 server {
+    listen 80;
     listen 443 ssl http2;
-    server_name sua-vps.panel.icontainer.run;
+    server_name _;
 
-    # Cache de arquivos estáticos do Next.js
+    # Chunks do Next.js: Cache permanente no navegador
     location /_next/static/ {
         alias /app/cliente/frontend/_next/static/;
         expires 365d;
         add_header Cache-Control "public, max-age=31536000, immutable";
+        access_log off;
     }
 
-    # Proxy para o Backend FastAPI
+    # Demais arquivos estáticos
+    location ~* \.(html|ico|png|jpg|svg|css|js|txt)$ {
+        root /app/cliente/frontend;
+        expires 1h;
+        add_header Cache-Control "no-cache, must-revalidate";
+        try_files $uri $uri.html /index.html;
+    }
+
+    # API Backend FastAPI
     location / {
         proxy_pass http://127.0.0.1:8000;
         proxy_http_version 1.1;
@@ -62,42 +128,30 @@ server {
 
 ---
 
-### ⚡ Fase 2: Otimização do Banco de Dados SQLite (Modo WAL)
-Para eliminar os travamentos de leitura/escrita simultâneos durante as operações do Telegram Copier:
+### ⚡ Fase 4: Otimização de Polling e Navegação no Frontend
 
-1. **Ativar o Modo WAL (Write-Ahead Logging):**
-   - Permite leituras infinitas em paralelo enquanto ocorrem escritas no banco, eliminando o erro de *Database Locked*.
-2. **Comando de Inicialização em `src/database/session.py`:**
-   ```python
-   # Executado na conexão do SQLAlchemy
-   await db.execute(text("PRAGMA journal_mode=WAL;"))
-   await db.execute(text("PRAGMA synchronous=NORMAL;"))
-   await db.execute(text("PRAGMA cache_size=-64000;")) # 64MB de RAM cache
-   ```
+1. **Cache de Estado em Memória (`EstadoContext`):**
+   - A navegação entre páginas da Sidebar deve reutilizar o estado em memória, respondendo em **30 a 50ms**.
+2. **Debounce e Pooling Inteligente:**
+   - Evitar disparos repetidos de `/broker/refresh-balance` e `/dashboard/live` em paralelo ao trocar de rota.
 
 ---
 
-### ⚡ Fase 3: Otimizações de Frontend & Live Stream Polling
-1. **Debounce e Sincronização Inteligente do Dashboard (`frontend/app/dashboard/page.tsx`):**
-   - Substituir o polling rígido de 5s por WebSockets ou desativar chamadas HTTP secundárias enquanto a página está carregando o estado inicial.
-2. **Lazy Loading de Componentes Secundários:**
-   - Carregar o gráfico e a tabela de histórico em segundo plano apenas após a renderização dos cartões principais de banca e lucro.
+## 📊 Matriz Comparativa: Antes vs. Depois
+
+| Métrica / Cenário | Arquitetura Anterior | Nova Arquitetura Proposta |
+| :--- | :--- | :--- |
+| **Banco de Dados** | SQLite (travamento em escritas) | **PostgreSQL 16 com asyncpg** (MVCC ilimitado) |
+| **Clique na Sidebar** | 2 a 8 segundos (fila no worker) | **30 a 50 ms** (SPA em memória + Nginx HTTP/2) |
+| **Consulta de Saldo** | Bloqueante (3 a 5s por request) | **Instantâneo (< 5ms)** via DB cache |
+| **Telegram Auth / Code** | 30 a 45s (tentativas IPv6) | **1 a 3s** (IPv4 direto + timeouts curtos) |
+| **Throughput HTTP** | ~50 req/s | **> 2.500 req/s** |
 
 ---
 
-### ⚡ Fase 4: Configuração de Produção do Docker & Uvicorn
-1. **Aumento de Workers no Dockerfile:**
-   - Manter 2 a 4 workers no comando Uvicorn ([Dockerfile](file:///c:/Users/WIN10/Downloads/RDE_5/Dockerfile#L43)):
-     ```dockerfile
-     CMD ["python", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--loop", "uvloop"]
-     ```
-2. **Uso do `uvloop`:**
-   - Instalar `uvloop` no `requirements.txt` para acelerar em até 4x o event loop assíncrono do Python em ambiente Linux.
+## 📌 Roteiro de Execução Recomendado
 
----
-
-## 📌 Guia de Verificação Pós-Implementação
-Após aplicar as fases acima em tarefas futuras:
-1. Executar teste de carga com o comando `ab -n 1000 -c 10 http://vps10755.panel.icontainer.run/`.
-2. Verificar se o tempo de resposta (TTFB) fica abaixo de **100ms**.
-3. Confirmar se o carregamento da página `/dashboard` atinge marcação verde de **<1 segundo** no Chrome Lighthouse Audit.
+1. **Passo 1:** Adicionar `asyncpg` e `psycopg2-binary` no `requirements.txt` e o container `postgres:16-alpine` no Docker Compose.
+2. **Passo 2:** Desacoplar a rota de saldo da corretora no backend para responder em <5ms.
+3. **Passo 3:** Adicionar a configuração do Nginx para entrega HTTP/2 dos arquivos estáticos.
+4. **Passo 4:** Realizar testes de carga e validação da navegação na VPS.

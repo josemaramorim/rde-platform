@@ -1,23 +1,47 @@
 version: "3.9"
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rde-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rde_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rde_pass_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-rde_platform}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - rde-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rde_user} -d ${POSTGRES_DB:-rde_platform}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   rde-backend:
     build: .
     container_name: rde-platform
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "8000:8000"
     env_file:
       - .env
     environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-rde_user}:${POSTGRES_PASSWORD:-rde_pass_2026}@postgres:5432/${POSTGRES_DB:-rde_platform}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:--1001804981654}
       - TELEGRAM_GROUP_NAME=${TELEGRAM_GROUP_NAME:-R&DE🇧🇷}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-7533153324:AAFnjAwlQcLQfJeSFNOPeg0iVI7F97LDzzI}
-    volumes:
-      # Persiste o banco SQLite local fora do container
-      - ./rde_local.db:/app/rde_local.db
     networks:
       - rde-net
+
+volumes:
+  postgres_data:
 
 networks:
   rde-net:

@@ -13,6 +13,8 @@ fastapi-users[sqlalchemy]>=13.0.0
 
 # --- Banco de Dados ---
 sqlalchemy>=2.0.0
+asyncpg>=0.29.0
+psycopg2-binary>=2.9.9
 aiosqlite>=0.19.0
 alembic>=1.13.0
 

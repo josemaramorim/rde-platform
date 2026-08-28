@@ -580,9 +580,24 @@ async def refresh_balance(
         return {"broker": broker_name, "status": "error", "message": f"Corretora '{broker_name}' nao suportada."}
 
     try:
-        loop = asyncio.get_event_loop()
-        with ThreadPoolExecutor() as pool:
-            results = list(pool.map(_fetch_one_balance, settings))
+        loop = asyncio.get_running_loop()
+        with ThreadPoolExecutor(max_workers=max(len(settings), 1)) as pool:
+            tasks = [loop.run_in_executor(pool, _fetch_one_balance, s) for s in settings]
+            try:
+                raw_results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=5.0)
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout de 5s atingido ao buscar saldos de corretoras para usuario {user.id}")
+                raw_results = [{"broker": s.broker_name, "status": "timeout", "message": "Tempo limite excedido"} for s in settings]
+
+        results = []
+        for i, res in enumerate(raw_results):
+            if isinstance(res, Exception):
+                logger.error(f"Erro ao consultar saldo {settings[i].broker_name}: {res}")
+                results.append({"broker": settings[i].broker_name, "status": "error", "message": str(res)})
+            elif isinstance(res, dict):
+                results.append(res)
+            else:
+                results.append({"broker": settings[i].broker_name, "status": "error", "message": "Resposta inválida"})
 
         total_balance = 0.0
         connected = []
