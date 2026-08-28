@@ -213,7 +213,7 @@ export default function DashboardPage() {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ phone: telegramPhone.trim() }),
-        signal: AbortSignal.timeout(45000),
+        signal: AbortSignal.timeout(60000),
       });
       const data = await res.json();
       if (res.ok) {

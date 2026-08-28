@@ -119,7 +119,8 @@ class TelegramCopier:
                 retry_delay=2,
                 auto_reconnect=True,
                 request_retries=10,
-                timeout=30,
+                timeout=15,
+                use_ipv6=False,
             )
         except Exception:
             logger.warning("Usando sessao temporaria (sessao fixa indisponivel).")
@@ -130,7 +131,8 @@ class TelegramCopier:
                 retry_delay=2,
                 auto_reconnect=True,
                 request_retries=10,
-                timeout=30,
+                timeout=15,
+                use_ipv6=False,
             )
 
     def load_state(self):
@@ -1218,7 +1220,9 @@ class TelegramCopier:
                     self.api_id,
                     self.api_hash,
                     auto_reconnect=True,
-                    connection_retries=5
+                    connection_retries=5,
+                    timeout=15,
+                    use_ipv6=False,
                 )
 
             await asyncio.wait_for(self.client.connect(), timeout=25)

@@ -88,7 +88,16 @@ def _get_user_lock(user_id) -> asyncio.Lock:
 
 def _create_client(session_str: str | None = None):
     session = StringSession(session_str) if session_str else StringSession()
-    return TelegramClient(session, API_ID, API_HASH, system_version="4.16.30-vxRDE")
+    return TelegramClient(
+        session,
+        API_ID,
+        API_HASH,
+        system_version="4.16.30-vxRDE",
+        connection_retries=3,
+        retry_delay=1,
+        timeout=10,
+        use_ipv6=False,
+    )
 
 
 @router.get("/auth-status")
@@ -108,7 +117,7 @@ async def telegram_auth_status(
 
         client = _create_client(session_str)
         try:
-            await asyncio.wait_for(client.connect(), timeout=10.0)
+            await asyncio.wait_for(client.connect(), timeout=5.0)
             authorized = await client.is_user_authorized()
             if authorized:
                 me = await client.get_me()
@@ -159,7 +168,7 @@ async def telegram_send_code(
         if user.telegram_session_string:
             try:
                 test_client = _create_client(user.telegram_session_string)
-                await asyncio.wait_for(test_client.connect(), timeout=10.0)
+                await asyncio.wait_for(test_client.connect(), timeout=3.0)
                 if await test_client.is_user_authorized():
                     await test_client.disconnect()
                     _update_user_live_status(user.id, f"Telegram já autenticado ({phone_digits}).")
@@ -174,8 +183,8 @@ async def telegram_send_code(
         client = _create_client()
 
         try:
-            await asyncio.wait_for(client.connect(), timeout=25.0)
-            sent = await asyncio.wait_for(client.send_code_request(phone_full), timeout=30.0)
+            await asyncio.wait_for(client.connect(), timeout=15.0)
+            sent = await asyncio.wait_for(client.send_code_request(phone_full), timeout=25.0)
             
             # Salva o progresso temporario da StringSession
             _temp_user_sessions[str(user.id)] = client.session.save()
