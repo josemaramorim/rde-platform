@@ -123,6 +123,8 @@ node_modules/
 # Pastas antigas / backup
 rde-frontend_old_FAT32/
 
-# Documentação local (não vai para o git)
+# Documentação do Projeto (mantida no git)
 docs/*
 !docs/ARQUITETURA_FRONTEND_PRODUCAO.md
+!docs/PERFORMANCE_OPTIMIZATION_PLAN.md
+!docs/GUIA_POSTGRESQL_E_ADMIN.md
