@@ -901,6 +901,56 @@ async def startup():
                 _log.info(f"Migração: coluna '{col_name}' adicionada à tabela broker_settings.")
             except Exception:
                 pass
+    # ── Seed automático de Planos e Admin Inicial ──────────────────
+    from src.database.session import AsyncSessionLocal
+    async with AsyncSessionLocal() as session:
+        try:
+            from src.models.user import Plan, User
+            from sqlalchemy import select
+            from fastapi_users.password import PasswordHelper
+
+            # 1. Cria os planos padrão se não existirem
+            plans_data = [
+                {"name": "Free", "max_signals_per_day": 5, "max_stake": 5.0, "price_usd": 0.0, "is_demo": True, "allowed_brokers": '["iqoption", "deriv"]'},
+                {"name": "Pro", "max_signals_per_day": 100, "max_stake": 100.0, "price_usd": 19.0, "is_demo": False, "allowed_brokers": '["iqoption", "deriv"]'},
+                {"name": "VIP", "max_signals_per_day": 99999, "max_stake": 1000.0, "price_usd": 49.0, "is_demo": False, "allowed_brokers": '["iqoption", "deriv"]'},
+            ]
+            for p in plans_data:
+                r = await session.execute(select(Plan).where(Plan.name == p["name"]))
+                if not r.scalar_one_or_none():
+                    session.add(Plan(**p))
+                    _log.info(f"Seed: Plano '{p['name']}' criado no banco de dados.")
+            await session.commit()
+
+            # 2. Cria o Administrador Inicial se não houver nenhum admin
+            admin_res = await session.execute(select(User).where(User.is_admin == True))
+            admin_user = admin_res.scalars().first()
+            if not admin_user:
+                vip_res = await session.execute(select(Plan).where(Plan.name == "VIP"))
+                vip_plan = vip_res.scalar_one_or_none()
+
+                admin_email = getattr(settings, "ADMIN_EMAIL", "admin@rde-platform.com") or "admin@rde-platform.com"
+                admin_pass = getattr(settings, "ADMIN_PASSWORD", "admin123456") or "admin123456"
+                helper = PasswordHelper()
+
+                new_admin = User(
+                    email=admin_email,
+                    username="Administrador",
+                    hashed_password=helper.hash(admin_pass),
+                    is_active=True,
+                    is_superuser=True,
+                    is_verified=True,
+                    is_admin=True,
+                    plan=vip_plan,
+                    broker="iqoption",
+                    stake=2.0,
+                    risk_mode="safe",
+                )
+                session.add(new_admin)
+                await session.commit()
+                _log.info(f"👑 Seed: Admin inicial criado: '{admin_email}' (Senha padrão inicial configurada).")
+        except Exception as seed_err:
+            _log.warning(f"Aviso no seed inicial de dados: {seed_err}")
 
     # ── Limpeza de arquivos temporários ────────────────────────────
     pid_file = "copier.pid"

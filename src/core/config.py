@@ -170,7 +170,8 @@ class Settings(BaseSettings):
     TELEGRAM_PHONE: str = Field(default="", description="Phone number for Telethon auth (+5511999999999)")
 
     # ==================== ADMIN ====================
-    ADMIN_EMAIL: str = Field(default="admin@rde-platform.com", description="Admin email for magic login")
+    ADMIN_EMAIL: str = Field(default="admin@rde-platform.com", description="Admin email for login")
+    ADMIN_PASSWORD: str = Field(default="admin123456", description="Initial admin password for first boot seed")
 
     # ==================== EXTERNAL BROKERS ====================
     # Removido DERIV_APP_ID
