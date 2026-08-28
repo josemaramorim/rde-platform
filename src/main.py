@@ -1645,15 +1645,39 @@ if _frontend_dir:
         except Exception:
             return FileResponse(filepath, headers=_NO_CACHE_HEADERS)
 
+    _ROOT_REDIRECT_HTML = """<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>RDE Platform</title>
+  <script>
+    (function() {
+      try {
+        var t = sessionStorage.getItem("rde_token") || localStorage.getItem("rde_token");
+        if (t && t.length > 10) {
+          window.location.replace("/dashboard");
+        } else {
+          window.location.replace("/login");
+        }
+      } catch(e) {
+        window.location.replace("/login");
+      }
+    })();
+  </script>
+</head>
+<body style="background:#020617;color:#94a3b8;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:system-ui,-apple-system,sans-serif;">
+  <div style="text-align:center;">
+    <div style="width:32px;height:32px;border:3px solid rgba(59,130,246,0.2);border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;"></div>
+    <div style="font-size:13px;font-weight:600;letter-spacing:0.05em;">Carregando RDE...</div>
+  </div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+</body>
+</html>"""
+
     @app.api_route("/", methods=["GET", "HEAD"])
     async def serve_index():
-        fp = _os.path.join(_frontend_dir, "acesso.html")
-        if _os.path.isfile(fp):
-            return _render_html(fp)
-        fp = _os.path.join(_frontend_dir, "index.html")
-        if _os.path.isfile(fp):
-            return _render_html(fp)
-        return JSONResponse({"detail": "Not Found"}, status_code=404)
+        return HTMLResponse(_ROOT_REDIRECT_HTML, headers=_NO_CACHE_HEADERS)
 
     @app.api_route("/{path:path}", methods=["GET", "HEAD"])
     async def spa_fallback(path: str):
