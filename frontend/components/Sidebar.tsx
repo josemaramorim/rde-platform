@@ -56,7 +56,7 @@ export default function Sidebar() {
       <nav className="flex-1 px-4 space-y-1">
         {menuItems.map((item) => {
           const isActive = pathname === item.href;
-          const isAllowedForPending = item.href === "/setup" || item.href === "/perfil";
+          const isAllowedForPending = item.href === "/setup" || item.href === "/perfil" || item.href === "/carteira";
           const isLocked = !isLiberado && !isAllowedForPending;
 
           return (

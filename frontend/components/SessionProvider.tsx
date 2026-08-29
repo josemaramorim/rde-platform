@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEstado } from "@/hooks/useEstado";
 
 const PUBLIC = ["/", "/login", "/forgot-password", "/reset-password", "/atualizar", "/bloqueado"];
-const ALLOWED_UNLIBERATED = ["/setup", "/termo-risco", "/perfil"];
+const ALLOWED_UNLIBERATED = ["/setup", "/termo-risco", "/perfil", "/carteira"];
 
 export default function SessionProvider({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
