@@ -197,7 +197,7 @@ export default function SetupPage() {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({ broker_name: selectedBroker }),
-            signal: AbortSignal.timeout(8000),
+            signal: AbortSignal.timeout(60000),
           });
           const testData = await testRes.json();
 
@@ -211,13 +211,18 @@ export default function SetupPage() {
             setBrokerStatus({ ok: false, msg: testData.message || "Falha na conexão" });
           }
         } catch (e: any) {
-          setBrokerStatus({ ok: false, msg: e?.message || "Erro ao conectar" });
+          const isTimeout = e?.name === "TimeoutError" || e?.message?.includes("timed out");
+          const msg = isTimeout
+            ? "Tempo limite esgotado ao conectar com a corretora. Verifique suas credenciais e tente novamente."
+            : (e?.message || "Erro ao conectar");
+          setBrokerStatus({ ok: false, msg });
         }
       })();
     } catch (e: any) {
       setBrokerStatus({ ok: false, msg: e?.message || "Erro ao conectar" });
       setTesting(false);
     }
+
   };
 
   const handleConfirm = async () => {

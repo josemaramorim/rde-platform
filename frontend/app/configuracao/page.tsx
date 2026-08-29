@@ -165,7 +165,7 @@ export default function ConfigPage() {
                             method: "POST",
                             headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
                             body: JSON.stringify({ broker_name: selectedBroker }),
-                            signal: AbortSignal.timeout(10000),
+                            signal: AbortSignal.timeout(60000),
                         });
                         const testData = await testRes.json();
                         if (testData.status === "ok") {
@@ -180,8 +180,13 @@ export default function ConfigPage() {
                         }
                     } catch (connErr: any) {
                         if (setBrokerConectado) setBrokerConectado(selectedBroker, 0, formData.is_demo ? "Demo" : "Real", formData.is_demo);
-                        setSaveMsg({ type: "err", text: connErr?.message || "Erro de conexão ao testar a corretora." });
+                        const isTimeout = connErr?.name === "TimeoutError" || connErr?.message?.includes("timed out");
+                        const msg = isTimeout
+                            ? "Tempo limite esgotado ao conectar com a corretora. Verifique suas credenciais e tente novamente."
+                            : (connErr?.message || "Erro de conexão ao testar a corretora.");
+                        setSaveMsg({ type: "err", text: msg });
                     }
+
                 })();
             } else {
                 const err = await res.json().catch(() => ({}));
