@@ -10,6 +10,8 @@ export default function Sidebar() {
   const { estado } = useEstado();
   const isAdmin = estado?.is_admin ?? false;
 
+  const isLiberado = estado?.liberado || isAdmin;
+
   // Memoriza os itens para evitar recriação de array a cada render
   const menuItems = useMemo(() => {
     const baseItems = [
@@ -46,7 +48,7 @@ export default function Sidebar() {
       <Link href="/" className="p-8 block hover:opacity-80 transition-opacity">
         <h1 className="text-2xl font-black text-white tracking-widest text-gradient">RDE</h1>
         <p className="text-[10px] text-slate-500 uppercase tracking-[0.3em] font-bold mt-1">
-          {isAdmin ? "Administrador" : "Cliente"}
+          {isAdmin ? "Administrador" : isLiberado ? "Cliente VIP" : "Pendente de Liberação"}
         </p>
       </Link>
 
@@ -54,18 +56,26 @@ export default function Sidebar() {
       <nav className="flex-1 px-4 space-y-1">
         {menuItems.map((item) => {
           const isActive = pathname === item.href;
+          const isAllowedForPending = item.href === "/setup" || item.href === "/perfil";
+          const isLocked = !isLiberado && !isAllowedForPending;
+
           return (
             <Link
               key={item.name}
-              href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-                isActive
+              href={isLocked ? "/setup" : item.href}
+              className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                isLocked
+                  ? "opacity-50 text-slate-500 hover:bg-slate-900/40 cursor-not-allowed"
+                  : isActive
                   ? "bg-blue-600 text-white shadow-lg glow-blue"
                   : "text-slate-400 hover:bg-slate-800/60 hover:text-white"
               }`}
             >
-              <span className="text-base">{item.icon}</span>
-              {item.name}
+              <div className="flex items-center gap-3">
+                <span className="text-base">{item.icon}</span>
+                {item.name}
+              </div>
+              {isLocked && <span className="text-xs text-amber-500 font-bold">🔒</span>}
             </Link>
           );
         })}

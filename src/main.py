@@ -1131,6 +1131,12 @@ async def toggle_copier(
     import subprocess, sys, os, psutil, json
     from datetime import datetime
 
+    if not user.liberado and not user.is_admin:
+        raise HTTPException(
+            status_code=403,
+            detail="Sua conta está aguardando liberação do administrador. Entre em contato para ativar sua licença."
+        )
+
     pid_file = "copier.pid"
     status_file = f"live_status_{user.id}.json"
 

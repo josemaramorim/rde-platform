@@ -42,7 +42,7 @@ export interface EstadoUsuario {
 }
 
 const DEFAULT: EstadoUsuario = {
-  email: "", username: "", liberado: true, is_admin: false,
+  email: "", username: "", liberado: false, is_admin: false,
   plan_name: "basic", broker_ativo: "iqoption", broker_is_demo: true,
   stake: 1.0, risk_mode: "safe", stop_loss_pct: 5.0, daily_meta_pct: 3.0,
   telegram_enabled: false, latency_protection: false, capital_planilha: null,
