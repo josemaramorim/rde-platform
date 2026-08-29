@@ -465,6 +465,10 @@ async def test_broker_connection(
         return {"status": "error", "message": f"Falha na conexão: {err_msg}"}
 
 
+_active_refresh_users = set()
+_active_refresh_lock = threading.Lock()
+
+
 @router.post("/refresh-balance")
 async def refresh_balance(
     user: User = Depends(current_active_user),
@@ -475,119 +479,129 @@ async def refresh_balance(
     e atualiza o banco. Retorna o saldo de cada uma + total.
     Usa cache de conexao para evitar reconexao a cada 30 segundos.
     """
-    stmt = select(BrokerSetting).where(
-        BrokerSetting.user_id == user.id,
-        BrokerSetting.is_active == True,
-    )
-    result = await db.execute(stmt)
-    settings = result.scalars().all()
-
-    if not settings:
-        return {"status": "no_broker", "balance": 0.0, "broker": None, "brokers": []}
-
-    def _decrypt(val):
-        if not val:
-            return None
-        try:
-            dec = encryption_service.decrypt(val)
-            return dec if dec != "ERROR_DECRYPT" else val
-        except Exception:
-            return val
-
-    import asyncio
-    from concurrent.futures import ThreadPoolExecutor
-
-    def _fetch_one_balance(setting):
-        """Busca o saldo de um único broker (com cache de conexao)."""
-        broker_name = setting.broker_name.lower()
-        cache_key = f"{user.id}_{broker_name}"
-
-        # Verificar cache de conexao
-        with _refresh_cache_lock:
-            cached = _broker_refresh_cache.get(cache_key)
-            if cached:
-                age = time.time() - cached["created_at"]
-                if age < _CACHE_TTL:
-                    broker = cached["broker"]
-                    try:
-                        balance = broker.get_balance()
-                        if balance and balance > 0:
-                            logger.info(f"Broker balance from cache (age={age:.0f}s): ${balance}")
-                            return {"broker": broker_name, "status": "ok", "balance": float(balance), "mode": "Demo" if setting.is_demo else "Real"}
-                    except Exception:
-                        pass
-                    # Cache miss ou erro - remove
-                    try:
-                        broker.disconnect()
-                    except Exception:
-                        pass
-                    _broker_refresh_cache.pop(cache_key, None)
-
-        if broker_name == "iqoption":
-            from src.broker.iqoption import IQOptionBroker
-            creds = _decrypt(setting.api_token) or ""
-            if "|||" in creds:
-                email, password = creds.split("|||", 1)
-            else:
-                email, password = creds, ""
-            if not email or not password:
-                return {"broker": broker_name, "status": "error", "message": "Credenciais IQ Option incompletas."}
-            b = IQOptionBroker(email=email, password=password, is_demo=setting.is_demo)
-            b.connect()
-            time.sleep(2)
-            balance = b.get_balance()
-            with _refresh_cache_lock:
-                _broker_refresh_cache[cache_key] = {"broker": b, "created_at": time.time()}
-            return {"broker": broker_name, "status": "ok", "balance": float(balance or 0), "mode": "Demo" if setting.is_demo else "Real"}
-
-        elif broker_name == "quotex":
-            from src.broker.quotex import QuotexBroker
-            creds = _decrypt(setting.api_token) or ""
-            email, password = creds.split("|||", 1) if "|||" in creds else (creds, "")
-            if not email or not password:
-                return {"broker": broker_name, "status": "error", "message": "Credenciais Quotex incompletas."}
-            b = QuotexBroker(email=email, password=password, is_demo=setting.is_demo)
-            b.connect()
-            balance = b.get_balance()
-            with _refresh_cache_lock:
-                _broker_refresh_cache[cache_key] = {"broker": b, "created_at": time.time()}
-            return {"broker": broker_name, "status": "ok", "balance": float(balance or 0), "mode": "Demo" if setting.is_demo else "Real"}
-
-        elif broker_name == "pocketoption":
-            from src.broker.pocketoption import PocketOptionBroker
-            ssid = _decrypt(setting.api_token)
-            if not ssid:
-                return {"broker": broker_name, "status": "error", "message": "SSID Pocket Option nao configurado."}
-            b = PocketOptionBroker(ssid=ssid, is_demo=setting.is_demo)
-            b.connect()
-            balance = b.get_balance()
-            with _refresh_cache_lock:
-                _broker_refresh_cache[cache_key] = {"broker": b, "created_at": time.time()}
-            return {"broker": broker_name, "status": "ok", "balance": float(balance or 0), "mode": "Demo" if setting.is_demo else "Real"}
-
-        elif broker_name in ("deriv", "deriv_demo", "deriv_real"):
-            from src.broker.deriv import DerivBroker
-            token = _decrypt(setting.api_token)
-            if not token:
-                return {"broker": broker_name, "status": "error", "message": "Token Deriv nao configurado."}
-            b = DerivBroker(api_token=token, is_demo=setting.is_demo, app_id=getattr(setting, "deriv_app_id", None) or "16929")
-            b.connect()
-            balance = b.get_balance()
-            with _refresh_cache_lock:
-                _broker_refresh_cache[cache_key] = {"broker": b, "created_at": time.time()}
-            return {"broker": broker_name, "status": "ok", "balance": float(balance or 0), "mode": "Demo" if setting.is_demo else "Real"}
-
-        return {"broker": broker_name, "status": "error", "message": f"Corretora '{broker_name}' nao suportada."}
+    with _active_refresh_lock:
+        if user.id in _active_refresh_users:
+            return {"status": "busy", "message": "Atualização de saldo já em andamento", "balance": 0.0, "brokers": []}
+        _active_refresh_users.add(user.id)
 
     try:
-        loop = asyncio.get_running_loop()
-        with ThreadPoolExecutor(max_workers=max(len(settings), 1)) as pool:
-            tasks = [loop.run_in_executor(pool, _fetch_one_balance, s) for s in settings]
+        stmt = select(BrokerSetting).where(
+            BrokerSetting.user_id == user.id,
+            BrokerSetting.is_active == True,
+        )
+        result = await db.execute(stmt)
+        settings = result.scalars().all()
+
+        if not settings:
+            return {"status": "no_broker", "balance": 0.0, "broker": None, "brokers": []}
+
+        def _decrypt(val):
+            if not val:
+                return None
             try:
-                raw_results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=5.0)
-            except asyncio.TimeoutError:
-                logger.warning(f"Timeout de 5s atingido ao buscar saldos de corretoras para usuario {user.id}")
-                raw_results = [{"broker": s.broker_name, "status": "timeout", "message": "Tempo limite excedido"} for s in settings]
+                dec = encryption_service.decrypt(val)
+                return dec if dec != "ERROR_DECRYPT" else val
+            except Exception:
+                return val
+
+        def _fetch_one_balance(setting):
+            """Busca o saldo de um único broker (com cache de conexao)."""
+            broker_name = setting.broker_name.lower()
+            cache_key = f"{user.id}_{broker_name}"
+
+            # Verificar cache de conexao
+            with _refresh_cache_lock:
+                cached = _broker_refresh_cache.get(cache_key)
+                if cached:
+                    age = time.time() - cached["created_at"]
+                    if age < _CACHE_TTL:
+                        broker = cached["broker"]
+                        try:
+                            balance = broker.get_balance()
+                            if balance is not None:
+                                logger.info(f"Broker balance from cache (age={age:.0f}s): ${balance}")
+                                return {"broker": broker_name, "status": "ok", "balance": float(balance), "mode": "Demo" if setting.is_demo else "Real"}
+                        except Exception:
+                            pass
+                        # Cache miss ou erro - remove
+                        try:
+                            broker.disconnect()
+                        except Exception:
+                            pass
+                        _broker_refresh_cache.pop(cache_key, None)
+
+            if broker_name == "iqoption":
+                from src.broker.iqoption import IQOptionBroker
+                creds = _decrypt(setting.api_token) or ""
+                if "|||" in creds:
+                    email, password = creds.split("|||", 1)
+                else:
+                    email, password = creds, ""
+                if not email or not password:
+                    return {"broker": broker_name, "status": "error", "message": "Credenciais IQ Option incompletas."}
+                b = IQOptionBroker(email=email, password=password, is_demo=setting.is_demo)
+                b.connect()
+                time.sleep(1)
+                balance = b.get_balance()
+                with _refresh_cache_lock:
+                    _broker_refresh_cache[cache_key] = {"broker": b, "created_at": time.time()}
+                return {"broker": broker_name, "status": "ok", "balance": float(balance or 0), "mode": "Demo" if setting.is_demo else "Real"}
+
+            elif broker_name == "quotex":
+                from src.broker.quotex import QuotexBroker
+                creds = _decrypt(setting.api_token) or ""
+                email, password = creds.split("|||", 1) if "|||" in creds else (creds, "")
+                if not email or not password:
+                    return {"broker": broker_name, "status": "error", "message": "Credenciais Quotex incompletas."}
+                b = QuotexBroker(email=email, password=password, is_demo=setting.is_demo)
+                b.connect()
+                balance = b.get_balance()
+                with _refresh_cache_lock:
+                    _broker_refresh_cache[cache_key] = {"broker": b, "created_at": time.time()}
+                return {"broker": broker_name, "status": "ok", "balance": float(balance or 0), "mode": "Demo" if setting.is_demo else "Real"}
+
+            elif broker_name == "pocketoption":
+                from src.broker.pocketoption import PocketOptionBroker
+                ssid = _decrypt(setting.api_token)
+                if not ssid:
+                    return {"broker": broker_name, "status": "error", "message": "SSID Pocket Option nao configurado."}
+                b = PocketOptionBroker(ssid=ssid, is_demo=setting.is_demo)
+                b.connect()
+                balance = b.get_balance()
+                with _refresh_cache_lock:
+                    _broker_refresh_cache[cache_key] = {"broker": b, "created_at": time.time()}
+                return {"broker": broker_name, "status": "ok", "balance": float(balance or 0), "mode": "Demo" if setting.is_demo else "Real"}
+
+            elif broker_name in ("deriv", "deriv_demo", "deriv_real"):
+                from src.broker.deriv import DerivBroker
+                token = _decrypt(setting.api_token)
+                if not token:
+                    return {"broker": broker_name, "status": "error", "message": "Token Deriv nao configurado."}
+                b = DerivBroker(api_token=token, is_demo=setting.is_demo, app_id=getattr(setting, "deriv_app_id", None) or "16929")
+                b.connect()
+                balance = b.get_balance()
+                with _refresh_cache_lock:
+                    _broker_refresh_cache[cache_key] = {"broker": b, "created_at": time.time()}
+                return {"broker": broker_name, "status": "ok", "balance": float(balance or 0), "mode": "Demo" if setting.is_demo else "Real"}
+
+            return {"broker": broker_name, "status": "error", "message": f"Corretora '{broker_name}' nao suportada."}
+
+        try:
+            loop = asyncio.get_running_loop()
+            with ThreadPoolExecutor(max_workers=max(len(settings), 1)) as pool:
+                tasks = [loop.run_in_executor(pool, _fetch_one_balance, s) for s in settings]
+                try:
+                    raw_results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=25.0)
+                except asyncio.TimeoutError:
+                    logger.warning(f"Timeout ao buscar saldos de corretoras para usuario {user.id}")
+                    raw_results = [{"broker": s.broker_name, "status": "timeout", "message": "Tempo limite excedido"} for s in settings]
+        except Exception as pool_err:
+            logger.error(f"Erro no pool de busca de saldos: {pool_err}")
+            raw_results = []
+    finally:
+        with _active_refresh_lock:
+            _active_refresh_users.discard(user.id)
+
 
         results = []
         for i, res in enumerate(raw_results):

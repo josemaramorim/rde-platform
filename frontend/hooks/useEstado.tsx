@@ -162,9 +162,12 @@ export function EstadoProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const isRefreshingRef = useRef(false);
+
   const refreshBalance = useCallback(async () => {
     const token = getToken();
-    if (!token) return;
+    if (!token || isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
     try {
       const res = await fetch(`${API_URL}/broker/refresh-balance`, {
         method: "POST",
@@ -210,6 +213,8 @@ export function EstadoProvider({ children }: { children: ReactNode }) {
       }
     } catch (e) {
       // Silencioso — evita spam no console a cada 30s
+    } finally {
+      isRefreshingRef.current = false;
     }
   }, []);
 
@@ -225,6 +230,10 @@ export function EstadoProvider({ children }: { children: ReactNode }) {
       const mode = localStorage.getItem("rde_planilha_mode");
       const broker = localStorage.getItem("rde_planilha_broker");
       const capital = localStorage.getItem("rde_planilha_capital");
+
+      if (savedEstado) {
+        setLoading(false);
+      }
 
       setEstado(prev => {
         let next = { ...prev };
@@ -262,12 +271,13 @@ export function EstadoProvider({ children }: { children: ReactNode }) {
     const token = getToken();
     if (!token) return;
 
-    // Primeiro refresh imediato após a recarga inicial
+    // Só inicia refresh se o usuário tiver licença liberada ou admin
+    if (!estado.liberado && !estado.is_admin) return;
+
     const initialDelay = setTimeout(() => {
       refreshBalance();
     }, 5000);
 
-    // Timer recorrente a cada 30 segundos
     refreshTimerRef.current = setInterval(() => {
       refreshBalance();
     }, BALANCE_REFRESH_INTERVAL);
@@ -279,7 +289,8 @@ export function EstadoProvider({ children }: { children: ReactNode }) {
         refreshTimerRef.current = null;
       }
     };
-  }, [refreshBalance]);
+  }, [refreshBalance, estado.liberado, estado.is_admin]);
+
 
   const salvar = useCallback(async (campos: Partial<EstadoUsuario>): Promise<boolean> => {
     const token = getToken();
