@@ -386,11 +386,13 @@ async def test_broker_connection(
                     
                 b = IQOptionBroker(email=email, password=password, is_demo=setting.is_demo)
                 b.connect()
-                time.sleep(2)
+                time.sleep(1)
                 balance = b.get_balance()
                 if balance is None:
                     balance = 0.0
                 mode = "Demo" if setting.is_demo else "Real"
+                with _refresh_cache_lock:
+                    _broker_refresh_cache[f"{user.id}_{broker_name}"] = {"broker": b, "created_at": time.time()}
                 return {"status": "ok", "message": "Conectado!", "balance": float(balance), "mode": mode}
 
             # --- QUOTEX ---
@@ -407,6 +409,8 @@ async def test_broker_connection(
                 b.connect()
                 balance = b.get_balance()
                 mode = "Demo" if setting.is_demo else "Real"
+                with _refresh_cache_lock:
+                    _broker_refresh_cache[f"{user.id}_{broker_name}"] = {"broker": b, "created_at": time.time()}
                 return {"status": "ok", "message": "Conectado!", "balance": float(balance or 0), "mode": mode}
 
             # --- POCKET OPTION ---
@@ -419,6 +423,8 @@ async def test_broker_connection(
                 b.connect()
                 balance = b.get_balance()
                 mode = "Demo" if setting.is_demo else "Real"
+                with _refresh_cache_lock:
+                    _broker_refresh_cache[f"{user.id}_{broker_name}"] = {"broker": b, "created_at": time.time()}
                 return {"status": "ok", "message": "Conectado!", "balance": float(balance or 0), "mode": mode}
 
             # --- DERIV ---
@@ -430,6 +436,8 @@ async def test_broker_connection(
                 b = DerivBroker(api_token=token, is_demo=setting.is_demo, app_id=getattr(setting, "deriv_app_id", None) or "16929")
                 b.connect()
                 balance = b.get_balance()
+                with _refresh_cache_lock:
+                    _broker_refresh_cache[f"{user.id}_{broker_name}"] = {"broker": b, "created_at": time.time()}
                 return {"status": "ok", "message": "Conectado!", "balance": float(balance or 0), "mode": "Demo" if setting.is_demo else "Real"}
 
             return {"status": "error", "message": f"Corretora '{broker_name}' nao suportada."}
@@ -439,10 +447,11 @@ async def test_broker_connection(
             try:
                 result = await asyncio.wait_for(
                     loop.run_in_executor(pool, _connect_and_balance),
-                    timeout=10.0
+                    timeout=35.0
                 )
             except asyncio.TimeoutError:
-                return {"status": "error", "message": f"Tempo limite (10s) atingido ao conectar com {broker_name}."}
+                return {"status": "error", "message": f"Tempo limite atingido ao conectar com {broker_name.upper()}. Verifique suas credenciais e tente novamente."}
+
 
         # Save balance to DB so dashboard can read it
         if result.get("status") == "ok":

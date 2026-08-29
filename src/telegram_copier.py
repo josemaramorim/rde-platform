@@ -936,9 +936,7 @@ class TelegramCopier:
             logger.info(f"Ordem em andamento. Ignorando novo sinal: {signal['direction']} {signal['symbol']}")
             return
 
-        # Atualiza saldo real do broker antes de calcular entrada
-        await self._refresh_balance()
-        self.update_live_status(f"Processando sinal: {signal['symbol']}...")
+        self.update_live_status(f"Disparando sinal: {signal['symbol']}...")
 
         # Verifica se pode operar (sessao ativa + entradas disponiveis)
         if not self.session_manager.can_trade():
@@ -1022,12 +1020,13 @@ class TelegramCopier:
         )
 
         try:
-            self._balance_before_trade = self.broker.get_balance() or self.current_balance
+            self._balance_before_trade = self.current_balance
             result = None
             for attempt in range(3):
                 try:
                     if self.broker is None:
                         reconnected = await self.connect_broker()
+
                         if not reconnected:
                             logger.error("Falha ao reconectar broker.")
                             self.update_live_status("Erro: broker desconectado")
