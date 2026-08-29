@@ -52,10 +52,20 @@ export default function TermoRiscoPage() {
     if (!token) { router.push("/login"); return; }
 
     Promise.all([
-      fetch(`${API_URL}/risk-term/text`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch(`${API_URL}/risk-term/status`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch(`${API_URL}/user/estado`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-    ]).then(([termData, termStatus, userData]) => {
+      fetch(`${API_URL}/risk-term/text`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`${API_URL}/risk-term/status`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`${API_URL}/user/estado`, { headers: { Authorization: `Bearer ${token}` } }),
+    ]).then(async ([resTerm, resStatus, resUser]) => {
+      if (resTerm.status === 401 || resStatus.status === 401 || resUser.status === 401) {
+        localStorage.removeItem("rde_token");
+        sessionStorage.removeItem("rde_token");
+        router.push("/login");
+        return;
+      }
+      const termData = await resTerm.json();
+      const termStatus = await resStatus.json();
+      const userData = await resUser.json();
+
       if (termData.text) setTermText(termData.text);
       if (userData.email) setEmail(userData.email);
       if (userData.username) setFullName(userData.username);

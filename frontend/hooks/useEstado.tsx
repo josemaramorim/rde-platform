@@ -131,6 +131,14 @@ export function EstadoProvider({ children }: { children: ReactNode }) {
         headers: { Authorization: `Bearer ${token}` },
         signal: AbortSignal.timeout(10000),
       });
+      if (res.status === 401) {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("rde_token");
+          sessionStorage.removeItem("rde_token");
+          window.location.href = "/login";
+        }
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setEstado(prev => {
