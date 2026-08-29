@@ -361,242 +361,265 @@ export default function SetupPage() {
           </div>
         )}
 
-        {!liberado && (
-          <div className="mb-6 bg-gradient-to-r from-amber-500/10 to-rose-500/10 border border-amber-500/20 rounded-2xl p-6 backdrop-blur-md">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-lg">🔑</span>
-              <h2 className="text-sm font-black text-white uppercase tracking-widest">Ativar Plataforma</h2>
-            </div>
-            <p className="text-xs text-slate-400 mb-4">
-              Insira o token de licença fornecido pelo administrador para liberar o acesso.
-            </p>
-            <form onSubmit={handleAtivarToken} className="flex gap-3">
-              <input
-                type="text"
-                value={tokenCode}
-                onChange={e => setTokenCode(e.target.value)}
-                placeholder="Cole seu token aqui..."
-                className="flex-1 bg-slate-950/50 border border-slate-800 text-white rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 uppercase tracking-widest font-mono"
-                required
-              />
-              <button type="submit" disabled={ativandoToken}
-                className="px-6 py-3 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 disabled:opacity-50 text-white font-black rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg">
-                {ativandoToken ? "Ativando..." : "Ativar"}
-              </button>
-            </form>
-            {tokenMsg && (
-              <div className={`mt-3 p-3 rounded-xl text-xs font-bold border ${tokenMsg.ok ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-rose-500/10 border-rose-500/20 text-rose-400"}`}>
-                {tokenMsg.text}
+        {!liberado ? (
+          <div className="space-y-6">
+            <div className="bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-amber-500/10 border border-amber-500/30 rounded-2xl p-6 backdrop-blur-md">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-2xl">⛔</span>
+                <div>
+                  <h2 className="text-base font-black text-amber-400 uppercase tracking-widest">Licença Pendente de Liberação</h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Sua conta ainda não foi ativada pelo administrador. Insira seu token de acesso abaixo ou adquira um plano na aba Carteira.
+                  </p>
+                </div>
               </div>
-            )}
-          </div>
-        )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          {/* Card 1: Corretora */}
-          <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl p-6">
-            <div className="flex items-center gap-2 mb-5">
-              <span className="text-lg">📊</span>
-              <h2 className="text-sm font-black text-white uppercase tracking-widest">Corretora</h2>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 mb-4">
-              {BROKERS.map(b => (
-                <button
-                  key={b.id}
-                  onClick={() => { setSelectedBroker(b.id); setBrokerStatus(null); }}
-                  className={`p-3 rounded-xl text-xs font-bold border transition-all ${
-                    selectedBroker === b.id
-                      ? "bg-blue-500/10 border-blue-500/40 text-blue-400"
-                      : "bg-slate-950/50 border-slate-800 text-slate-500 hover:border-slate-700"
-                  }`}
-                >
-                  {b.icon} {b.label}
+              <form onSubmit={handleAtivarToken} className="flex flex-col sm:flex-row gap-3 mt-6">
+                <input
+                  type="text"
+                  value={tokenCode}
+                  onChange={e => setTokenCode(e.target.value)}
+                  placeholder="Cole seu token de licença aqui..."
+                  className="flex-1 bg-slate-950/70 border border-slate-800 text-white rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 uppercase tracking-widest font-mono"
+                  required
+                />
+                <button type="submit" disabled={ativandoToken}
+                  className="px-6 py-3 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 disabled:opacity-50 text-white font-black rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg">
+                  {ativandoToken ? "Ativando..." : "🔑 Ativar Token"}
                 </button>
-              ))}
+              </form>
+              {tokenMsg && (
+                <div className={`mt-4 p-3 rounded-xl text-xs font-bold border ${tokenMsg.ok ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-rose-500/10 border-rose-500/20 text-rose-400"}`}>
+                  {tokenMsg.text}
+                </div>
+              )}
             </div>
 
-            {precisaEmailSenha && (
-              <div className="space-y-3 mb-4">
-                <input type="email" placeholder="E-mail da corretora"
-                  className="w-full bg-slate-950/50 border border-slate-800 text-white rounded-xl p-3 text-sm outline-none focus:border-blue-500"
-                  value={brokerEmail} onChange={e => setBrokerEmail(e.target.value)} />
-                <input type="password" placeholder="Senha"
-                  className="w-full bg-slate-950/50 border border-slate-800 text-white rounded-xl p-3 text-sm outline-none focus:border-blue-500"
-                  value={brokerPassword} onChange={e => setBrokerPassword(e.target.value)} />
+            {/* Banner de atalho para a Carteira */}
+            <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-black text-white uppercase tracking-widest">Ainda não possui um plano?</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Acesse a aba Carteira para adquirir um plano e liberar seu acesso instantaneamente.
+                </p>
               </div>
-            )}
-            {precisaToken && (
-              <div className="mb-4">
-                <input type="password" placeholder="Token PAT da Deriv (pat_...)"
-                  className="w-full bg-slate-950/50 border border-slate-800 text-white rounded-xl p-3 text-sm outline-none focus:border-blue-500"
-                  value={brokerApiToken} onChange={e => setBrokerApiToken(e.target.value)} />
-                {selectedBroker === "deriv" && (
-                  <div className="space-y-3 mt-3">
-                    <input placeholder="App ID da aplicação (obrigatório, numérico)"
+              <button
+                onClick={() => router.push("/carteira")}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl text-xs uppercase tracking-widest transition-all shrink-0 shadow-lg"
+              >
+                💳 Ir para Carteira
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+              {/* Card 1: Corretora */}
+              <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl p-6">
+                <div className="flex items-center gap-2 mb-5">
+                  <span className="text-lg">📊</span>
+                  <h2 className="text-sm font-black text-white uppercase tracking-widest">Corretora</h2>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {BROKERS.map(b => (
+                    <button
+                      key={b.id}
+                      onClick={() => { setSelectedBroker(b.id); setBrokerStatus(null); }}
+                      className={`p-3 rounded-xl text-xs font-bold border transition-all ${
+                        selectedBroker === b.id
+                          ? "bg-blue-500/10 border-blue-500/40 text-blue-400"
+                          : "bg-slate-950/50 border-slate-800 text-slate-500 hover:border-slate-700"
+                      }`}
+                    >
+                      {b.icon} {b.label}
+                    </button>
+                  ))}
+                </div>
+
+                {precisaEmailSenha && (
+                  <div className="space-y-3 mb-4">
+                    <input type="email" placeholder="E-mail da corretora"
                       className="w-full bg-slate-950/50 border border-slate-800 text-white rounded-xl p-3 text-sm outline-none focus:border-blue-500"
-                      value={derivAppId} onChange={e => setDerivAppId(e.target.value)} />
-                    <input type="date" placeholder="Validade do PAT"
+                      value={brokerEmail} onChange={e => setBrokerEmail(e.target.value)} />
+                    <input type="password" placeholder="Senha"
                       className="w-full bg-slate-950/50 border border-slate-800 text-white rounded-xl p-3 text-sm outline-none focus:border-blue-500"
-                      value={derivExpiry} onChange={e => setDerivExpiry(e.target.value)} />
-                    <p className="text-[10px] text-slate-500 leading-relaxed">
-                      O <b>App ID</b> deve ser o da aplicação PAT que gerou o token em developers.deriv.com.
-                      A data de validade serve para alertar 90 dias antes do vencimento.
-                    </p>
+                      value={brokerPassword} onChange={e => setBrokerPassword(e.target.value)} />
+                  </div>
+                )}
+                {precisaToken && (
+                  <div className="mb-4">
+                    <input type="password" placeholder="Token PAT da Deriv (pat_...)"
+                      className="w-full bg-slate-950/50 border border-slate-800 text-white rounded-xl p-3 text-sm outline-none focus:border-blue-500"
+                      value={brokerApiToken} onChange={e => setBrokerApiToken(e.target.value)} />
+                    {selectedBroker === "deriv" && (
+                      <div className="space-y-3 mt-3">
+                        <input placeholder="App ID da aplicação (obrigatório, numérico)"
+                          className="w-full bg-slate-950/50 border border-slate-800 text-white rounded-xl p-3 text-sm outline-none focus:border-blue-500"
+                          value={derivAppId} onChange={e => setDerivAppId(e.target.value)} />
+                        <input type="date" placeholder="Validade do PAT"
+                          className="w-full bg-slate-950/50 border border-slate-800 text-white rounded-xl p-3 text-sm outline-none focus:border-blue-500"
+                          value={derivExpiry} onChange={e => setDerivExpiry(e.target.value)} />
+                        <p className="text-[10px] text-slate-500 leading-relaxed">
+                          O <b>App ID</b> deve ser o da aplicação PAT que gerou o token em developers.deriv.com.
+                          A data de validade serve para alertar 90 dias antes do vencimento.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex gap-2 p-1 bg-slate-950/50 border border-slate-800 rounded-xl mb-4">
+                  <button onClick={() => setIsDemo(true)}
+                    className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isDemo ? "bg-slate-800 text-white border border-slate-700" : "text-slate-500"}`}>
+                    🎓 Demo
+                  </button>
+                  <button onClick={() => setIsDemo(false)}
+                    className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!isDemo ? "bg-rose-600/20 text-rose-400 border border-rose-500/30" : "text-slate-500"}`}>
+                    💰 Real
+                  </button>
+                </div>
+
+                <button
+                  onClick={handleTestConnection}
+                  disabled={testing}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-black rounded-xl transition-all text-xs uppercase tracking-widest shadow-md active:scale-[0.98] disabled:opacity-50"
+                >
+                  {testing ? "Testando conexão..." : "🔌 Testar Conexão"}
+                </button>
+
+                {brokerStatus && (
+                  <div className={`mt-3 p-3 rounded-xl text-xs font-bold border ${
+                    brokerStatus.ok
+                      ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                      : "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                  }`}>
+                    <span className="mr-1">{brokerStatus.ok ? "🟢" : "🔴"}</span>
+                    {brokerStatus.msg}
                   </div>
                 )}
               </div>
-            )}
 
-            <div className="flex gap-2 p-1 bg-slate-950/50 border border-slate-800 rounded-xl mb-4">
-              <button onClick={() => setIsDemo(true)}
-                className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isDemo ? "bg-slate-800 text-white border border-slate-700" : "text-slate-500"}`}>
-                🎓 Demo
-              </button>
-              <button onClick={() => setIsDemo(false)}
-                className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!isDemo ? "bg-rose-600/20 text-rose-400 border border-rose-500/30" : "text-slate-500"}`}>
-                💰 Real
-              </button>
-            </div>
-
-            <button
-              onClick={handleTestConnection}
-              disabled={testing}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-black rounded-xl transition-all text-xs uppercase tracking-widest shadow-md active:scale-[0.98] disabled:opacity-50"
-            >
-              {testing ? "Testando conexão..." : "🔌 Testar Conexão"}
-            </button>
-
-            {brokerStatus && (
-              <div className={`mt-3 p-3 rounded-xl text-xs font-bold border ${
-                brokerStatus.ok
-                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                  : "bg-rose-500/10 border-rose-500/20 text-rose-400"
-              }`}>
-                <span className="mr-1">{brokerStatus.ok ? "🟢" : "🔴"}</span>
-                {brokerStatus.msg}
+              {/* Card: Moeda de Exibição */}
+              <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl p-6">
+                <div className="flex items-center gap-2 mb-5">
+                  <span className="text-lg">💱</span>
+                  <h2 className="text-sm font-black text-white uppercase tracking-widest">Moeda de Exibição</h2>
+                </div>
+                <p className="text-[11px] text-slate-500 mb-4">
+                  A corretora opera em dólar (USD). Escolha como exibir saldo e lucro na plataforma.
+                </p>
+                <div className="flex gap-2 p-1 bg-slate-950/50 border border-slate-800 rounded-xl mb-4">
+                  <button onClick={() => setCurrency("USD")}
+                    className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${currency === "USD" ? "bg-slate-800 text-white border border-slate-700" : "text-slate-500"}`}>
+                    💵 USD (Dólar)
+                  </button>
+                  <button onClick={() => setCurrency("BRL")}
+                    className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${currency === "BRL" ? "bg-slate-800 text-white border border-slate-700" : "text-slate-500"}`}>
+                    🇧🇷 BRL (Real)
+                  </button>
+                </div>
+                <button
+                  onClick={handleSaveCurrency}
+                  disabled={savingCurrency}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-black rounded-xl transition-all text-xs uppercase tracking-widest shadow-md active:scale-[0.98] disabled:opacity-50"
+                >
+                  {savingCurrency ? "Salvando..." : "💱 Salvar Moeda"}
+                </button>
               </div>
-            )}
-          </div>
 
-          {/* Card: Moeda de Exibição */}
-          <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl p-6">
-            <div className="flex items-center gap-2 mb-5">
-              <span className="text-lg">💱</span>
-              <h2 className="text-sm font-black text-white uppercase tracking-widest">Moeda de Exibição</h2>
-            </div>
-            <p className="text-[11px] text-slate-500 mb-4">
-              A corretora opera em dólar (USD). Escolha como exibir saldo e lucro na plataforma.
-            </p>
-            <div className="flex gap-2 p-1 bg-slate-950/50 border border-slate-800 rounded-xl mb-4">
-              <button onClick={() => setCurrency("USD")}
-                className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${currency === "USD" ? "bg-slate-800 text-white border border-slate-700" : "text-slate-500"}`}>
-                💵 USD (Dólar)
-              </button>
-              <button onClick={() => setCurrency("BRL")}
-                className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${currency === "BRL" ? "bg-slate-800 text-white border border-slate-700" : "text-slate-500"}`}>
-                🇧🇷 BRL (Real)
-              </button>
-            </div>
-            <button
-              onClick={handleSaveCurrency}
-              disabled={savingCurrency}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-black rounded-xl transition-all text-xs uppercase tracking-widest shadow-md active:scale-[0.98] disabled:opacity-50"
-            >
-              {savingCurrency ? "Salvando..." : "💱 Salvar Moeda"}
-            </button>
-          </div>
+              {/* Card 2: Telegram */}
+              <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl p-6">
+                <div className="flex items-center gap-2 mb-5">
+                  <span className="text-lg">💬</span>
+                  <h2 className="text-sm font-black text-white uppercase tracking-widest">Telegram</h2>
+                </div>
 
-          {/* Card 2: Telegram */}
-          <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl p-6">
-            <div className="flex items-center gap-2 mb-5">
-              <span className="text-lg">💬</span>
-              <h2 className="text-sm font-black text-white uppercase tracking-widest">Telegram</h2>
-            </div>
+                <div className={`p-4 rounded-xl border text-center ${
+                  telegramConnected
+                    ? "bg-emerald-500/10 border-emerald-500/20"
+                    : "bg-rose-500/10 border-rose-500/20"
+                }`}>
+                  <div className="text-4xl mb-2">
+                    {telegramConnected ? "🟢" : "🔴"}
+                  </div>
+                  <p className={`text-sm font-black uppercase tracking-widest ${telegramConnected ? "text-emerald-400" : "text-rose-400"}`}>
+                    {telegramConnected ? "Conectado" : "Desconectado"}
+                  </p>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    {copierRunning ? "Copiador em execução" : "Copiador parado"}
+                  </p>
+                </div>
 
-            <div className={`p-4 rounded-xl border text-center ${
-              telegramConnected
-                ? "bg-emerald-500/10 border-emerald-500/20"
-                : "bg-rose-500/10 border-rose-500/20"
-            }`}>
-              <div className="text-4xl mb-2">
-                {telegramConnected ? "🟢" : "🔴"}
+                <button
+                  onClick={fetchTelegramStatus}
+                  className="w-full mt-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-all text-[10px] uppercase tracking-widest"
+                >
+                  🔄 Verificar Status
+                </button>
               </div>
-              <p className={`text-sm font-black uppercase tracking-widest ${telegramConnected ? "text-emerald-400" : "text-rose-400"}`}>
-                {telegramConnected ? "Conectado" : "Desconectado"}
-              </p>
-              <p className="text-[10px] text-slate-500 mt-1">
-                {copierRunning ? "Copiador em execução" : "Copiador parado"}
-              </p>
-            </div>
 
-            <button
-              onClick={fetchTelegramStatus}
-              className="w-full mt-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-all text-[10px] uppercase tracking-widest"
-            >
-              🔄 Verificar Status
-            </button>
-          </div>
-
-          {/* Card 3: Capital */}
-          <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl p-6">
-            <div className="flex items-center gap-2 mb-5">
-              <span className="text-lg">💰</span>
-              <h2 className="text-sm font-black text-white uppercase tracking-widest">Capital</h2>
-            </div>
-            <p className="text-3xl font-black text-white">
-              {capital.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-            </p>
-            <p className="text-[10px] text-slate-500 mt-2 uppercase tracking-widest">
-              {estado?.broker_connected ? "Saldo da corretora" : "Capital da planilha"}
-            </p>
-            <div className="flex gap-2 mt-4">
-              <span className="px-3 py-1 bg-slate-800 rounded-lg text-[10px] font-bold text-slate-400">
-                Stake: R$ {estado?.stake?.toFixed(2) || "0.00"}
-              </span>
-              <span className="px-3 py-1 bg-slate-800 rounded-lg text-[10px] font-bold text-slate-400">
-                Modo: {estado?.broker_is_demo ? "🎓 Demo" : "💰 Real"}
-              </span>
-            </div>
-          </div>
-
-          {/* Card 4: Meta */}
-          <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl p-6">
-            <div className="flex items-center gap-2 mb-5">
-              <span className="text-lg">🎯</span>
-              <h2 className="text-sm font-black text-white uppercase tracking-widest">Meta Diária</h2>
-            </div>
-            <div className={`p-4 rounded-xl border text-center ${
-              metaBatida
-                ? "bg-emerald-500/10 border-emerald-500/20"
-                : "bg-slate-950/50 border-slate-800"
-            }`}>
-              <div className={`text-4xl mb-2 ${metaBatida ? "" : "opacity-30"}`}>
-                {metaBatida ? "🏆" : "⏳"}
+              {/* Card 3: Capital */}
+              <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl p-6">
+                <div className="flex items-center gap-2 mb-5">
+                  <span className="text-lg">💰</span>
+                  <h2 className="text-sm font-black text-white uppercase tracking-widest">Capital</h2>
+                </div>
+                <p className="text-3xl font-black text-white">
+                  {capital.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </p>
+                <p className="text-[10px] text-slate-500 mt-2 uppercase tracking-widest">
+                  {estado?.broker_connected ? "Saldo da corretora" : "Capital da planilha"}
+                </p>
+                <div className="flex gap-2 mt-4">
+                  <span className="px-3 py-1 bg-slate-800 rounded-lg text-[10px] font-bold text-slate-400">
+                    Stake: R$ {estado?.stake?.toFixed(2) || "0.00"}
+                  </span>
+                  <span className="px-3 py-1 bg-slate-800 rounded-lg text-[10px] font-bold text-slate-400">
+                    Modo: {estado?.broker_is_demo ? "🎓 Demo" : "💰 Real"}
+                  </span>
+                </div>
               </div>
-              <p className={`text-sm font-black uppercase tracking-widest ${metaBatida ? "text-emerald-400" : "text-slate-400"}`}>
-                {metaBatida ? "META BATIDA HOJE" : "META PENDENTE"}
-              </p>
-              <p className="text-[10px] text-slate-500 mt-1">
-                {estado?.daily_meta_pct || 3}% sobre o capital
+
+              {/* Card 4: Meta */}
+              <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl p-6">
+                <div className="flex items-center gap-2 mb-5">
+                  <span className="text-lg">🎯</span>
+                  <h2 className="text-sm font-black text-white uppercase tracking-widest">Meta Diária</h2>
+                </div>
+                <div className={`p-4 rounded-xl border text-center ${
+                  metaBatida
+                    ? "bg-emerald-500/10 border-emerald-500/20"
+                    : "bg-slate-950/50 border-slate-800"
+                }`}>
+                  <div className={`text-4xl mb-2 ${metaBatida ? "" : "opacity-30"}`}>
+                    {metaBatida ? "🏆" : "⏳"}
+                  </div>
+                  <p className={`text-sm font-black uppercase tracking-widest ${metaBatida ? "text-emerald-400" : "text-slate-400"}`}>
+                    {metaBatida ? "META BATIDA HOJE" : "META PENDENTE"}
+                  </p>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    {estado?.daily_meta_pct || 3}% sobre o capital
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Botao Confirmar */}
+            <div className="flex flex-col items-center">
+              <button
+                onClick={handleConfirm}
+                disabled={confirmLoading}
+                className="w-full max-w-md py-5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-black rounded-2xl transition-all text-sm uppercase tracking-widest shadow-lg shadow-blue-600/20 active:scale-[0.99] disabled:opacity-50"
+              >
+                {confirmLoading ? "Ativando..." : "✅ Confirmar e Ir para o Dashboard"}
+              </button>
+              <p className="text-[10px] text-slate-600 mt-3">
+                Certifique-se de que a corretora está conectada (🟢) antes de confirmar.
               </p>
             </div>
-          </div>
-        </div>
-
-        {/* Botao Confirmar */}
-        <div className="flex flex-col items-center">
-          <button
-            onClick={handleConfirm}
-            disabled={confirmLoading}
-            className="w-full max-w-md py-5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-black rounded-2xl transition-all text-sm uppercase tracking-widest shadow-lg shadow-blue-600/20 active:scale-[0.99] disabled:opacity-50"
-          >
-            {confirmLoading ? "Ativando..." : "✅ Confirmar e Ir para o Dashboard"}
-          </button>
-          <p className="text-[10px] text-slate-600 mt-3">
-            Certifique-se de que a corretora está conectada (🟢) antes de confirmar.
-          </p>
-        </div>
+          </>
+        )}
       </div>
     </div>
   );
