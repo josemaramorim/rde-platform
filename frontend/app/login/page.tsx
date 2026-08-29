@@ -11,7 +11,6 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [magicLoading, setMagicLoading] = useState(false);
 
   const router = useRouter();
   const { recarregar } = useEstado();
@@ -86,47 +85,6 @@ function LoginForm() {
     }
   };
 
-  const handleMagicBypass = async () => {
-    if (!email) {
-      setError("Por favor, preencha o campo de e-mail para usar o Magic Bypass.");
-      return;
-    }
-    setError("");
-    setMagicLoading(true);
-
-    try {
-      const response = await fetch(`${API_URL}/auth/magic-login`, {
-        method: "POST",
-        headers: { 
-          "Accept": "application/json",
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ email: email, password: password })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || "Erro ao realizar o Magic Login.");
-      }
-
-      const tokenGerado = data.access_token || data.token || data.accessToken;
-
-      if (tokenGerado) {
-        sessionStorage.setItem("rde_token", tokenGerado);
-        localStorage.setItem("rde_token", tokenGerado);
-        recarregar().catch(() => {});
-        await navegarParaSetup(tokenGerado);
-      } else {
-        setError("Bypass aceito, mas nenhum token foi recebido.");
-        setMagicLoading(false);
-      }
-    } catch (err: any) {
-      setError(err.message || "Falha na conexão com o servidor do Bypass.");
-      setMagicLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 relative overflow-hidden">
       <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-500/10 blur-[150px] rounded-full -z-10"></div>
@@ -188,7 +146,7 @@ function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                required={!magicLoading}
+                required
                 autoComplete="current-password"
                 className="w-full bg-slate-950/50 border border-slate-800 text-white rounded-xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all text-sm font-light placeholder:text-slate-700"
               />
@@ -196,25 +154,17 @@ function LoginForm() {
 
             <button
               type="submit"
-              disabled={loading || magicLoading}
+              disabled={loading}
               className="w-full text-white font-black py-4 rounded-xl transition-all uppercase text-xs tracking-widest shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-500 shadow-blue-600/10"
             >
               {loading ? "Autenticando..." : "Entrar na Plataforma →"}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleMagicBypass}
-              disabled={loading || magicLoading}
-              className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black py-3.5 rounded-xl border border-emerald-500/20 transition-all uppercase text-xs tracking-widest shadow-md shadow-emerald-950/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {magicLoading ? "Bypass Ativo..." : "🚀 Ativar Magic Bypass"}
             </button>
           </form>
         </div>
       </div>
     </div>
   );
+
 }
 
 export default function LoginPage() {
