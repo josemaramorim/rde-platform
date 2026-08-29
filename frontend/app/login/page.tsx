@@ -36,12 +36,14 @@ function LoginForm() {
       try {
         const res = await fetch(`${API_URL}/risk-term/status`, {
           headers: { Authorization: `Bearer ${t}` },
-          signal: AbortSignal.timeout(5000),
+          signal: AbortSignal.timeout(2000),
         });
-        const data = await res.json();
-        if (!data.accepted) {
-          window.location.href = "/termo-risco";
-          return;
+        if (res.ok) {
+          const data = await res.json();
+          if (!data.accepted) {
+            window.location.href = "/termo-risco";
+            return;
+          }
         }
       } catch { /* em caso de erro, vai pro setup normalmente */ }
     }
@@ -77,14 +79,14 @@ function LoginForm() {
       if (tokenGerado) {
         sessionStorage.setItem("rde_token", tokenGerado);
         localStorage.setItem("rde_token", tokenGerado);
-        await recarregar();
-        navegarParaSetup(tokenGerado);
+        recarregar().catch(() => {});
+        await navegarParaSetup(tokenGerado);
       } else {
         setError("O servidor não retornou um token válido de acesso.");
+        setLoading(false);
       }
     } catch (err: any) {
       setError(err.message || "E-mail ou senha incorretos.");
-    } finally {
       setLoading(false);
     }
   };
@@ -118,15 +120,15 @@ function LoginForm() {
       if (tokenGerado) {
         sessionStorage.setItem("rde_token", tokenGerado);
         localStorage.setItem("rde_token", tokenGerado);
-        await recarregar();
-        navegarParaSetup(tokenGerado);
+        recarregar().catch(() => {});
+        await navegarParaSetup(tokenGerado);
       } else {
         setError("Bypass aceito, mas nenhum token foi recebido.");
+        setMagicLoading(false);
       }
     } catch (err: any) {
       setError(err.message || "Falha na conexão com o servidor do Bypass.");
-    } finally {
-      setMagicLoading(false); // 💡 Corrigido aqui para voltar a permitir o clique
+      setMagicLoading(false);
     }
   };
 
