@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEstado } from "@/hooks/useEstado";
 import { API_URL } from "@/lib/constants";
 import Link from "next/link";
@@ -14,9 +14,6 @@ function LoginForm() {
   const [magicLoading, setMagicLoading] = useState(false);
 
   const router = useRouter();
-  const searchParams = useSearchParams();
-  
-  // Usando a função 'recarregar' do seu useEstado.ts
   const { recarregar } = useEstado();
 
   useEffect(() => {
@@ -27,8 +24,6 @@ function LoginForm() {
       }
     }
   }, []);
-
-  const isCliente = searchParams.get("tipo") === "cliente";
 
   const navegarParaSetup = async (token?: string) => {
     const t = token || sessionStorage.getItem("rde_token") || localStorage.getItem("rde_token");
@@ -139,14 +134,8 @@ function LoginForm() {
 
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <span
-            className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-widest ${
-              isCliente
-                ? "border-slate-800 bg-slate-900 text-slate-300"
-                : "border-blue-500/20 bg-blue-500/10 text-blue-400"
-            }`}
-          >
-            {isCliente ? "👤 Acesso Cliente" : "👑 Acesso Administrador"}
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-blue-500/20 bg-blue-500/10 text-blue-400 text-[10px] font-black uppercase tracking-widest">
+            🔐 Portal de Acesso RDE
           </span>
         </div>
 
@@ -156,7 +145,7 @@ function LoginForm() {
               RDE
             </h1>
             <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em] mt-2">
-              {isCliente ? "Portal do Cliente" : "Painel Operacional"}
+              Painel Operacional
             </p>
           </div>
 
@@ -175,7 +164,7 @@ function LoginForm() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="ferreira.jpa1@hotmail.com"
+                placeholder="seuemail@dominio.com"
                 required
                 autoComplete="email"
                 className="w-full bg-slate-950/50 border border-slate-800 text-white rounded-xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all text-sm font-light placeholder:text-slate-700"
@@ -208,44 +197,20 @@ function LoginForm() {
             <button
               type="submit"
               disabled={loading || magicLoading}
-              className={`w-full text-white font-black py-4 rounded-xl transition-all uppercase text-xs tracking-widest shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
-                isCliente
-                  ? "bg-slate-800 hover:bg-slate-700 shadow-slate-900/20"
-                  : "bg-blue-600 hover:bg-blue-500 shadow-blue-600/10"
-              }`}
+              className="w-full text-white font-black py-4 rounded-xl transition-all uppercase text-xs tracking-widest shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-500 shadow-blue-600/10"
             >
-              {loading ? "Autenticando..." : isCliente ? "Entrar como Cliente →" : "Entrar como Administrador →"}
+              {loading ? "Autenticando..." : "Entrar na Plataforma →"}
             </button>
 
-            {!isCliente && (
-              <button
-                type="button"
-                onClick={handleMagicBypass}
-                disabled={loading || magicLoading}
-                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black py-3.5 rounded-xl border border-emerald-500/20 transition-all uppercase text-xs tracking-widest shadow-md shadow-emerald-950/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {magicLoading ? "Bypass Ativo..." : "🚀 Ativar Magic Bypass"}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleMagicBypass}
+              disabled={loading || magicLoading}
+              className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black py-3.5 rounded-xl border border-emerald-500/20 transition-all uppercase text-xs tracking-widest shadow-md shadow-emerald-950/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {magicLoading ? "Bypass Ativo..." : "🚀 Ativar Magic Bypass"}
+            </button>
           </form>
-
-          <div className="mt-8 text-center">
-            {isCliente ? (
-              <Link
-                href="/login"
-                className="text-xs text-slate-500 font-bold hover:text-slate-300 transition-colors tracking-wide"
-              >
-                ← Entrar como Administrador
-              </Link>
-            ) : (
-              <Link
-                href="/login?tipo=cliente"
-                className="text-xs text-slate-500 font-bold hover:text-slate-300 transition-colors tracking-wide"
-              >
-                Entrar como Cliente →
-              </Link>
-            )}
-          </div>
         </div>
       </div>
     </div>
@@ -254,14 +219,10 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-          <p className="text-slate-400 font-medium text-sm animate-pulse">Carregando portal...</p>
-        </div>
-      }
-    >
+    <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">Carregando...</div>}>
       <LoginForm />
     </Suspense>
   );
 }
+
+
