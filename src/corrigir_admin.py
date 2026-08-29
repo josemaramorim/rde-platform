@@ -12,8 +12,8 @@ from fastapi_users.password import PasswordHelper
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 helper = PasswordHelper()
 
-ADMIN_EMAIL = getattr(settings, "ADMIN_EMAIL", "ferreira.jpa1@hotmail.com") or "ferreira.jpa1@hotmail.com"
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Regy2423$$")
+ADMIN_EMAIL = getattr(settings, "ADMIN_EMAIL", "admin@rde-platform.com") or "admin@rde-platform.com"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", getattr(settings, "ADMIN_PASSWORD", "admin123456")) or "admin123456"
 
 PLANS = [
     {"name": "Free",  "max_signals_per_day": 5,    "max_stake": 5.0,   "price_usd": 0.0,  "is_demo": True,
@@ -64,15 +64,21 @@ def main():
 
         # 3) Admin
         print("\n[3/4] Verificando admin...")
+        from datetime import datetime
+        plan = db.query(Plan).filter_by(name="VIP").first()
         admin = db.query(User).filter_by(email=ADMIN_EMAIL).first()
         if admin:
             admin.is_admin = True
             admin.is_superuser = True
             admin.is_active = True
             admin.is_verified = True
+            admin.liberado = True
+            admin.trading_enabled = True
+            admin.is_active_trading = True
+            admin.plan = plan
+            admin.plan_expires_at = datetime(2099, 12, 31)
             print(f"      Admin '{ADMIN_EMAIL}' promovido/ativado (ja existia).")
         else:
-            plan = db.query(Plan).filter_by(name="VIP").first()
             admin = User(
                 email=ADMIN_EMAIL,
                 username="Reginier Ferreira",
@@ -81,7 +87,11 @@ def main():
                 is_superuser=True,
                 is_verified=True,
                 is_admin=True,
+                liberado=True,
+                trading_enabled=True,
+                is_active_trading=True,
                 plan=plan,
+                plan_expires_at=datetime(2099, 12, 31),
                 broker="iqoption",
                 stake=2.0,
                 risk_mode="safe",

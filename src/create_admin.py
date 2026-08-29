@@ -23,7 +23,7 @@ async def create_admin():
     print(" 👑 RDE — CONFIGURAR ADMINISTRADOR")
     print("====================================\n")
 
-    email    = input("Digite o E-mail do Admin (ex: ferreira.jpa1@hotmail.com): ").strip()
+    email    = input("Digite o E-mail do Admin (ex: admin@rde-platform.com): ").strip()
     username = input("Digite o Nome do Admin (ex: Reginier Ferreira): ").strip()
     password = getpass.getpass("Digite a Senha (mínimo 8 caracteres): ")
     confirm  = getpass.getpass("Confirme a Senha: ")
