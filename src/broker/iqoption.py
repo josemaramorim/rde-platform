@@ -179,13 +179,7 @@ class IQOptionBroker(BaseBroker):
             logger.warning(f"get_all_init falhou (continuando): {e}")
 
     def _refresh_open_status(self):
-        """Consulta a corretora e monta self._open_map[nome_completo] = aberto_agora.
-
-        Usa get_all_open_time() que reflete o horario de operacao REAL de cada
-        ativo (enabled / is_suspended por ativo). OTC opera 24/7; spot forex
-        segue o horario de mercado. Assim a plataforma so opera a variacao
-        efetivamente aberta e nunca troca spot por OTC (nem vice-versa).
-        """
+        """Consulta a corretora e monta self._open_map[nome_completo] = aberto_agora."""
         self._open_map = {}
         if self.api is None:
             return
@@ -196,39 +190,32 @@ class IQOptionBroker(BaseBroker):
             elif hasattr(self.api, "api") and hasattr(self.api.api, "get_all_open_time"):
                 open_time = self.api.api.get_all_open_time()
 
-            if not open_time:
+            if not open_time or not isinstance(open_time, dict):
                 return
-            for category in ("turbo", "binary", "other"):
-                cat_data = open_time.get(category, {}) if isinstance(open_time, dict) else {}
-                for name, info in cat_data.items():
-                    if isinstance(info, dict) and "open" in info:
-                        self._open_map[name] = bool(info["open"])
-            logger.info(f"Open-status atualizado: {sum(1 for v in self._open_map.values() if v)} ativos abertos de {len(self._open_map)}")
+            for category in ("turbo", "binary", "other", "digital"):
+                cat_data = open_time.get(category, {})
+                if isinstance(cat_data, dict):
+                    for name, info in cat_data.items():
+                        if isinstance(info, dict) and "open" in info:
+                            self._open_map[name] = bool(info["open"])
+            if self._open_map:
+                logger.info(f"Open-status atualizado: {sum(1 for v in self._open_map.values() if v)} ativos abertos de {len(self._open_map)}")
         except Exception as e:
             logger.warning(f"Falha ao consultar open-status: {e}")
 
 
     def _variation_open(self, name: str) -> bool:
-        """Verifica se uma variacao especifica (nome completo) esta aberta agora."""
-        # Tenta match exato primeiro
+        """Verifica se uma variacao especifica (nome completo) esta aberta agora (nao-bloqueante)."""
+        if not self._open_map:
+            return True
         if name in self._open_map:
             return self._open_map[name]
-        # Normaliza -/_ e case
         norm = name.upper().replace("_", "-")
         for key, val in self._open_map.items():
             if key.upper().replace("_", "-") == norm:
                 return val
-        # Se nao temos dados de open, recarrega e tenta de novo
-        if not self._open_map:
-            self._refresh_open_status()
-            if name in self._open_map:
-                return self._open_map[name]
-            for key, val in self._open_map.items():
-                if key.upper().replace("_", "-") == norm:
-                    return val
-        # So depois de tentar recarregar, assume aberto como fallback
-        logger.warning(f"Variacao '{name}' sem dados de open-status. Assumindo aberto como fallback.")
         return True
+
 
     def connect(self, wait_init: bool = True):
         if IQ_Option is None:
@@ -448,9 +435,31 @@ class IQOptionBroker(BaseBroker):
                     break
                 logger.warning(f"Tentativa {attempt+1}/3 para {name} falhou: {err}")
                 last_err = err
-                time.sleep(5)
+                time.sleep(1)
+
+        # Fallback Inteligente: Se a variação primária estiver suspensa (ex: OTC em dia de semana), tenta a contraparte
+        alt_symbol = re.sub(r'[-_]OTC[A-Z]?$', '', symbol) if is_otc else f"{symbol}-OTC"
+        alt_candidates = self._asset_map.get(alt_symbol, [])
+        if not alt_candidates:
+            alt_norm = alt_symbol.upper().replace("_", "-")
+            for key, vals in self._asset_map.items():
+                if key.upper().replace("_", "-") == alt_norm and vals:
+                    alt_candidates = vals
+                    break
+
+        if alt_candidates:
+            logger.info(f"[FALLBACK MERCADO] Variacao '{symbol}' indisponivel ({last_err}). Tentando contraparte '{alt_symbol}'...")
+            for name, aid, commission in alt_candidates:
+                payout = 100 - commission
+                logger.info(f"Tentando contraparte {alt_symbol} ({name}, id={aid}, payout={payout}%): {dir_clean.upper()} ${stake}")
+                status, oid = self._buyv3(aid, stake, dir_clean, duration)
+                if status:
+                    logger.info(f"Ordem executada na contraparte: {alt_symbol} {dir_clean} id={oid} (variacao {name})")
+                    return {"status": "ok", "result": f"Sucesso ({payout}%)", "order_id": oid,
+                            "variation": name, "payout": payout}
 
         return {"status": "error", "result": f"Todas as variacoes de {symbol} fecharam/recusaram: {last_err}"}
+
 
     async def async_send_order(self, symbol: str, stake: float, direction: str, duration: int = 1) -> dict:
         """Versao async: executa send_order num executor para nao bloquear o event loop."""

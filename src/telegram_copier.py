@@ -787,14 +787,18 @@ class TelegramCopier:
 
     def parse_signal(self, text: str) -> dict | None:
         """
-        Parser para o formato Patriot:
-        🟢 SINAL EURUSD-OTCi CALL
-        ⬆️ ENTRADA 18:01 (AGORA)
-        🕕 EXPIRAÇÃO 18:02
-        ♻️ COM 2G SE NECESSÁRIO
-        🕕 Expiração de M1
+        Parser para o formato Patriot e salas de sinais parceiras.
         """
         raw = text.upper()
+
+        # 0. Verificação de Pré-Alerta / Preparação (ex: "Prepare para 14:47 ... Aguarde confirmação...")
+        # Ignora mensagens preparatórias e só dispara quando a confirmação oficial chegar
+        is_pre_signal = any(p in raw for p in ["AGUARDE CONFIRMA", "AGUARDE A CONFIRMA", "PREPARE PARA", "ANALISANDO"])
+        is_confirmed = any(c in raw for c in ["CONFIRMADO", "CONFIRMADA", "ENTRE AGORA", "ENTRADA", "SINAL", "(AGORA)"])
+        if is_pre_signal and not is_confirmed:
+            logger.info("[PARSE] Mensagem de Pré-Alerta / Preparação detectada ('Aguarde confirmação'). Aguardando mensagem oficial de disparo...")
+            self.update_live_status("⏳ Radar: Pré-alerta recebido. Aguardando confirmação oficial...")
+            return None
 
         # 1. Direção
         direction = None
@@ -804,6 +808,7 @@ class TelegramCopier:
             direction = "PUT"
         if not direction:
             return None
+
 
         # 2. Ativo - reconhece qualquer par 4-10 letras,.synthetic, e OTC
         symbol = None
