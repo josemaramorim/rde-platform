@@ -34,7 +34,8 @@ class IQOptionBroker(BaseBroker):
         self._preferred_asset = None
         self._unavailable_assets = set()
         self._max_unavailable_attempts = 2
-        
+        self._bg_refresh_thread = None  # thread daemon de refresh do open-status
+
     def _validate_credentials(self) -> bool:
         """Valida se as credenciais do ativo são válidas antes de tentar conectar."""
         if not self.email or not self.password:
@@ -239,6 +240,36 @@ class IQOptionBroker(BaseBroker):
             if wait_init:
                 self._wait_init(timeout=5)
 
+            # Inicia refresh de open-status em background (nao-bloqueante)
+            self._start_background_refresh()
+
+    def _start_background_refresh(self):
+        """Inicia thread daemon que atualiza _open_map a cada 120s.
+        Nao bloqueia o caminho critico de envio de ordens.
+        Uma thread leve por instancia de broker (uma por usuario ativo).
+        """
+        # Cancela thread anterior se existir
+        if self._bg_refresh_thread and self._bg_refresh_thread.is_alive():
+            return  # ja esta rodando
+
+        def _loop():
+            # Primeira execucao: aguarda 5s para nao concorrer com o _wait_init inicial
+            time.sleep(5)
+            while self.api is not None:
+                try:
+                    self._refresh_open_status()
+                except Exception:
+                    pass
+                time.sleep(120)
+
+        self._bg_refresh_thread = threading.Thread(
+            target=_loop,
+            daemon=True,
+            name=f"iq-open-status-{self.email[:6]}"
+        )
+        self._bg_refresh_thread.start()
+        logger.info("[IQ] Background refresh de open-status iniciado (intervalo: 120s).")
+
     def _is_alive(self) -> bool:
         """Verifica se a conexao esta viva tentando obter saldo."""
         if self.api is None:
@@ -364,13 +395,10 @@ class IQOptionBroker(BaseBroker):
             symbol = f"{symbol}-OTC"
             is_otc = True
 
-        # Recarrega asset map / open-status para refletir estado atual da corretora
-
+        # Asset map e open-status sao pre-carregados pelo background thread.
+        # Nunca bloqueamos o caminho critico de envio de ordem aqui.
         if not self._asset_map:
-            logger.warning("Asset map vazio! Recarregando...")
-            self._wait_init()
-        if not self._open_map:
-            self._refresh_open_status()
+            logger.warning("[ORDEM] Asset map ainda vazio — prosseguindo com fallback sem bloqueio.")
 
         # --- PASSO 1: Busca candidates por match exato + normalizacoes ---
         norm = symbol.upper().replace("_", "-")
