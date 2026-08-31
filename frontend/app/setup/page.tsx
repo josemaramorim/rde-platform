@@ -96,6 +96,8 @@ export default function SetupPage() {
     }
   };
 
+  const [telegramChannelInfo, setTelegramChannelInfo] = useState<{ channel_configured: boolean; target_channel: string | null; missing_channel_warning: string | null } | null>(null);
+
   const fetchTelegramStatus = () => {
     const token = getToken();
     if (!token) return;
@@ -107,10 +109,12 @@ export default function SetupPage() {
         if (d) {
           setTelegramConnected(d.connected ?? false);
           setCopierRunning(d.copier_running ?? false);
+          setTelegramChannelInfo(d);
         }
       })
       .catch(() => {});
   };
+
 
   const handleSaveCurrency = async () => {
     setSavingCurrency(true);
@@ -554,7 +558,18 @@ export default function SetupPage() {
                   <p className="text-[10px] text-slate-500 mt-1">
                     {copierRunning ? "Copiador em execução" : "Copiador parado"}
                   </p>
+                  {telegramChannelInfo?.channel_configured ? (
+                    <div className="mt-3 pt-2 border-t border-slate-800/80">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Canal Alvo</p>
+                      <p className="text-xs font-mono font-bold text-emerald-400 truncate mt-0.5">{telegramChannelInfo.target_channel}</p>
+                    </div>
+                  ) : (
+                    <div className="mt-3 pt-2 border-t border-rose-500/20">
+                      <p className="text-[10px] font-bold text-rose-400">⚠️ Canal não configurado no servidor</p>
+                    </div>
+                  )}
                 </div>
+
 
                 <button
                   onClick={fetchTelegramStatus}

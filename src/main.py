@@ -465,10 +465,15 @@ async def telegram_status(user: User = Depends(current_active_user)):
                     live_data = json.load(f)
         except Exception:
             pass
+    target_channel = (settings.TELEGRAM_GROUP_NAME or "").strip().strip('"').strip("'") or (settings.TELEGRAM_CHAT_ID or "").strip()
+    channel_configured = bool(target_channel)
     return {
         "connected": connected,
         "group": settings.TELEGRAM_GROUP_NAME,
         "chat_id": settings.TELEGRAM_CHAT_ID,
+        "channel_configured": channel_configured,
+        "target_channel": target_channel or None,
+        "missing_channel_warning": None if channel_configured else "Canal de sinais do Telegram não configurado no servidor (defina TELEGRAM_GROUP_NAME ou TELEGRAM_CHAT_ID no .env/Docker).",
         "bot_configured": bool(settings.TELEGRAM_BOT_TOKEN),
         "copier_running": copier_running,
         "live": live_data,
@@ -481,6 +486,15 @@ async def start_copier(
     db: AsyncSession = Depends(get_async_session),
 ):
     import subprocess, sys, os, psutil
+
+    # Validação estrita: exige canal configurado nas variáveis do servidor
+    target_channel = (settings.TELEGRAM_GROUP_NAME or "").strip().strip('"').strip("'") or (settings.TELEGRAM_CHAT_ID or "").strip()
+    if not target_channel:
+        return {
+            "status": "error",
+            "message": "Canal de sinais não configurado no servidor. Defina TELEGRAM_GROUP_NAME ou TELEGRAM_CHAT_ID no arquivo .env ou nas variáveis do Docker.",
+        }
+
     if os.path.exists("copier.pid"):
         try:
             with open("copier.pid") as f:
@@ -494,6 +508,7 @@ async def start_copier(
                 os.remove("copier.pid")
             except Exception:
                 pass
+
 
     # Resolve broker do usuario
     result = await db.execute(

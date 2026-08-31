@@ -122,6 +122,8 @@ export default function DashboardPage() {
     }
   };
 
+  const [telegramStatusInfo, setTelegramStatusInfo] = useState<{ channel_configured: boolean; target_channel: string | null; missing_channel_warning: string | null } | null>(null);
+
   // Checar status de autenticação da sessão do Telegram ao carregar o Dashboard
   useEffect(() => {
     if (!token) return;
@@ -140,7 +142,17 @@ export default function DashboardPage() {
         }
       })
       .catch(() => setTelegramAuthState("idle"));
+
+    fetch(`${API_URL}/telegram/status`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d) setTelegramStatusInfo(d);
+      })
+      .catch(() => {});
   }, [token]);
+
 
   // Pooling de dados em tempo real (intervalo de 5 segundos)
   useEffect(() => {
@@ -447,7 +459,23 @@ export default function DashboardPage() {
                 <>
                   <div>
                     <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Status do Copier</h2>
-                    <div className="space-y-4">
+                    <div className="space-y-3">
+                      {telegramStatusInfo && !telegramStatusInfo.channel_configured && (
+                        <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3">
+                          <p className="text-rose-400 text-xs font-black uppercase tracking-widest">⚠️ Canal Não Configurado</p>
+                          <p className="text-slate-400 text-[11px] mt-1">
+                            O canal de sinais não está definido no servidor (<code className="text-rose-300 font-mono">TELEGRAM_GROUP_NAME</code>). O Copier permanecerá bloqueado.
+                          </p>
+                        </div>
+                      )}
+
+                      {telegramStatusInfo && telegramStatusInfo.channel_configured && (
+                        <div className="flex items-center justify-between bg-slate-950 p-3 rounded-xl border border-slate-900">
+                          <span className="text-slate-500 text-[11px] font-bold uppercase">Canal Alvo:</span>
+                          <span className="text-emerald-400 font-mono text-xs font-black truncate max-w-[160px]">{telegramStatusInfo.target_channel}</span>
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between bg-slate-950 p-4 rounded-xl border border-slate-900">
                         <span className="text-slate-400 text-xs font-bold uppercase">{liveData?.copier_running ? `Módulo ${liveData?.signal_source === 'tradingview' || liveData?.copier_source === 'tradingview' ? 'TradingView Webhook' : 'Telegram'}` : 'Módulo de Automação'}</span>
                         <span className={`w-3 h-3 rounded-full ${
@@ -474,18 +502,23 @@ export default function DashboardPage() {
                   </div>
                   <button 
                     onClick={handleToggleCopier}
-                    disabled={alternandoCopier}
+                    disabled={alternandoCopier || (telegramStatusInfo !== null && !telegramStatusInfo.channel_configured && !liveData?.copier_running)}
                     className={`w-full py-4 mt-4 rounded-xl text-white text-xs font-black uppercase tracking-widest transition shadow-lg ${
                       liveData?.copier_running 
                         ? 'bg-rose-600 hover:bg-rose-500 active:scale-[0.98]' 
+                        : (telegramStatusInfo !== null && !telegramStatusInfo.channel_configured)
+                        ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
                         : 'bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98]'
                     } disabled:opacity-50`}
                   >
                     {alternandoCopier ? 'Chaveando Módulo...' : liveData?.copier_running 
                       ? `Desativar Copier${(liveData?.signal_source === 'tradingview' || liveData?.copier_source === 'tradingview') ? ' (Webhook)' : ' (Telegram)'}`
+                      : (telegramStatusInfo !== null && !telegramStatusInfo.channel_configured)
+                      ? '⚠️ Canal Não Configurado'
                       : 'Ativar Copier'
                     }
                   </button>
+
                   <button 
                     onClick={async () => {
                       try { await fetch(`${API_URL}/telegram/logout`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } }); } catch {}

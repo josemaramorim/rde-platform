@@ -1418,6 +1418,16 @@ class TelegramCopier:
         self.update_live_status("Aguardando sinais da sala...")
 
         # Resolução e Validação dos Canais Alvo
+        group_name_cfg = (settings.TELEGRAM_GROUP_NAME or "").strip().strip('"').strip("'")
+        chat_id_cfg = (settings.TELEGRAM_CHAT_ID or "").strip()
+
+        if not group_name_cfg and not chat_id_cfg:
+            err_msg = "Canal de sinais não configurado (defina TELEGRAM_GROUP_NAME ou TELEGRAM_CHAT_ID no servidor)."
+            logger.error(f"❌ [TELEGRAM] {err_msg}")
+            self.update_live_status(f"Erro: {err_msg}")
+            self.is_running = False
+            return
+
         monitored_names = []
         try:
             dialogs = await self.client.get_dialogs(limit=100)
@@ -1426,30 +1436,27 @@ class TelegramCopier:
                 if d.is_channel or d.is_group:
                     logger.info(f"   🔹 '{d.name}' (ID: {d.id})")
 
-            # Remove aspas e normaliza o nome configurado
-            group_name_cfg = (settings.TELEGRAM_GROUP_NAME or "").strip().strip('"').strip("'").lower()
-            
-            # 1. Se target_chats foi definido por ID, valida contra os dialogs
+            # 1. Se target_chats foi definido por ID numérico, valida contra os dialogs
             if self.target_chats:
                 for d in dialogs:
                     if d.id in self.target_chats:
                         monitored_names.append(f"'{d.name}' (ID: {d.id})")
-            
-            # 2. Se não encontrou por ID mas tem nome configurado, busca pelo nome
+
+            # 2. Se tem nome de grupo configurado, busca pelo nome exato ou normalizado
             if not monitored_names and group_name_cfg:
                 for d in dialogs:
                     d_clean = d.name.lower().replace(" ", "").replace("_", "")
-                    cfg_clean = group_name_cfg.replace(" ", "").replace("_", "")
-                    if (d.is_channel or d.is_group) and (cfg_clean in d_clean or d_clean in cfg_clean or group_name_cfg in d.name.lower() or "r&de" in d.name.lower()):
+                    cfg_clean = group_name_cfg.lower().replace(" ", "").replace("_", "")
+                    if (d.is_channel or d.is_group) and (cfg_clean in d_clean or d_clean in cfg_clean or group_name_cfg.lower() in d.name.lower()):
                         self.target_chats = [d.id]
                         monitored_names.append(f"'{d.name}' (ID: {d.id})")
                         logger.info(f"🎯 [TELEGRAM] Canal resolvido com sucesso pelo nome: '{d.name}' (ID: {d.id})")
                         break
-            
-            # 3. Se ainda não encontrou, busca canal que contenha 'r&de' ou 'rde'
-            if not monitored_names:
+
+            # 3. Fallback inteligente apenas se o nome configurado for variações de R&DE
+            if not monitored_names and ("r&de" in group_name_cfg.lower() or "rde" in group_name_cfg.lower()):
                 for d in dialogs:
-                    if (d.is_channel or d.is_group) and ("r&de" in d.name.lower() or "rde" in d.name.lower() or "patriot" in d.name.lower()):
+                    if (d.is_channel or d.is_group) and ("r&de" in d.name.lower() or "rde" in d.name.lower()):
                         self.target_chats = [d.id]
                         monitored_names.append(f"'{d.name}' (ID: {d.id})")
                         logger.info(f"🎯 [TELEGRAM] Canal auto-detectado: '{d.name}' (ID: {d.id})")
@@ -1457,22 +1464,27 @@ class TelegramCopier:
         except Exception as e:
             logger.debug(f"Falha ao validar canais: {e}")
 
-        if self.target_chats and monitored_names:
-            logger.info(f"🎯 [TELEGRAM] Monitorando EXCLUSIVAMENTE {len(monitored_names)} canal(is): {', '.join(monitored_names)}")
-        elif self.target_chats:
-            logger.info(f"🎯 [TELEGRAM] Monitorando canal(is) configurado(s) por ID: {self.target_chats}")
-        else:
-            logger.warning("⚠️ [TELEGRAM] AVISO: Nenhum canal alvo específico configurado. O robô está ouvindo todos os grupos.")
+        # Bloqueio de segurança: se o canal configurado não foi encontrado, interrompe o robô
+        if not self.target_chats or not monitored_names:
+            target_desc = group_name_cfg or chat_id_cfg
+            err_msg = f"Canal '{target_desc}' NÃO encontrado nos grupos da conta do Telegram conectada."
+            logger.error(f"❌ [TELEGRAM] {err_msg}")
+            self.update_live_status(f"Erro: {err_msg}")
+            self.is_running = False
+            return
 
+        logger.info(f"🎯 [TELEGRAM] Monitorando EXCLUSIVAMENTE o canal configurado: {', '.join(monitored_names)}")
+        self.update_live_status(f"Monitorando canal: {monitored_names[0]}")
 
         @self.client.on(events.NewMessage(chats=self.target_chats))
         async def handler(event):
             try:
-                # Trava de segurança: garante que nunca processe mensagem fora dos canais alvo
-                if self.target_chats and event.chat_id not in self.target_chats:
+                # Trava estrita de segurança: garante que NUNCA processe mensagem fora do canal alvo
+                if not self.target_chats or event.chat_id not in self.target_chats:
                     return
                 text = event.message.text
                 if not text: return
+
                 
                 chat_title = "Chat Desconhecido"
                 try:

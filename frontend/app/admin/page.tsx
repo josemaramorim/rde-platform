@@ -267,6 +267,26 @@ export default function AdminPage() {
     const liberados = users.filter(u => u.liberado).length;
     const pendentes = users.filter(u => !u.liberado && u.is_active).length;
 
+    // Telegram status
+    const [telegramInfo, setTelegramInfo] = useState<{ channel_configured: boolean; target_channel: string | null; missing_channel_warning: string | null } | null>(null);
+
+    const fetchTelegramInfo = useCallback(async () => {
+        if (!token) return;
+        try {
+            const res = await fetch(`/telegram/status`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setTelegramInfo(data);
+            }
+        } catch {}
+    }, [token]);
+
+    useEffect(() => {
+        if (token) fetchTelegramInfo();
+    }, [token, fetchTelegramInfo]);
+
     return (
         <div className="min-h-screen p-4 md:p-8 bg-slate-950">
             <header className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -283,12 +303,38 @@ export default function AdminPage() {
                         className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all">
                         🔑 Tokens
                     </a>
-                    <button onClick={fetchUsers}
+                    <button onClick={() => { fetchUsers(); fetchTelegramInfo(); }}
                         className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all">
                         Atualizar
                     </button>
                 </div>
             </header>
+
+            {/* Banner de Status do Canal Telegram */}
+            {telegramInfo && !telegramInfo.channel_configured && (
+                <div className="mb-6 p-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 backdrop-blur-md flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <span className="text-2xl">⚠️</span>
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-widest text-rose-400">Canal Telegram Não Configurado</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                                As variáveis <code className="text-rose-300 bg-rose-950/60 px-1.5 py-0.5 rounded font-mono">TELEGRAM_GROUP_NAME</code> ou <code className="text-rose-300 bg-rose-950/60 px-1.5 py-0.5 rounded font-mono">TELEGRAM_CHAT_ID</code> não estão definidas no servidor/Docker. O Copier permanecerá bloqueado até a definição da sala.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {telegramInfo && telegramInfo.channel_configured && (
+                <div className="mb-6 p-3 px-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 backdrop-blur-md flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                        <span className="text-emerald-400 font-bold">🎯 Canal de Sinais Ativo:</span>
+                        <span className="text-white font-mono bg-slate-900 px-2 py-0.5 rounded-lg border border-slate-800 font-bold">{telegramInfo.target_channel}</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 uppercase tracking-widest">Exclusivo</span>
+                </div>
+            )}
+
 
             {/* Criar cliente */}
             {showCriar && (
