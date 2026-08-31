@@ -39,6 +39,11 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', stream=sys.stdout, force=True)
 logger = logging.getLogger("RDE-AI-Manager")
 
+# Silencia logs internos do Telethon (ex: "Got difference for channel")
+# Erros reais (WARNING+) continuam aparecendo normalmente
+logging.getLogger("telethon").setLevel(logging.WARNING)
+
+
 # Default symbol per broker
 DEFAULT_SYMBOL = {
     "deriv": "R_100",
