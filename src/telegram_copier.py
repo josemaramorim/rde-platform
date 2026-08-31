@@ -1060,7 +1060,8 @@ class TelegramCopier:
 
                     if attempt < 2:
                         err_msg = result.get("result", "") if result else "sem resposta"
-                        if any(kw in err_msg.lower() for kw in ["reconect", "conexao", "connect", "timeout", "fechado", "desconectado"]):
+                        # "fechado" e "desconectado" sao erros de mercado/negocio — nao reconectar
+                        if any(kw in err_msg.lower() for kw in ["reconect", "conexao", "connect", "timeout"]) and "mercado fechado" not in err_msg.lower():
                             logger.warning(f"Tentativa {attempt+1}/3: {err_msg}. Reconectando...")
                             try:
                                 self.broker.disconnect()
