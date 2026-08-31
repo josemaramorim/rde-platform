@@ -140,11 +140,9 @@ class IQOptionBroker(BaseBroker):
                 self._asset_map.setdefault(name, []).append(entry)
                 # Indice por base (apenas p/ fallback)
                 base_symbol = name.split("-")[0].split("_")[0]
-                self._asset_base_index.setdefault(base_symbol, []).append(entry)
-        # Log ativos encontrados
-        for sym, entries in list(self._asset_map.items())[:10]:
-            logger.info(f"  {sym}: {entries}")
-        logger.info(f"Asset map construido com {len(self._asset_map)} ativos e {len(self._asset_base_index)} base symbols")
+        # Conclusão do mapa de ativos
+        logger.info(f"Asset map construído com sucesso ({len(self._asset_map)} ativos catalogados).")
+
 
     def _wait_init(self, timeout: int = 5):
         """Aguarda get_all_init completar e constroi asset map."""
