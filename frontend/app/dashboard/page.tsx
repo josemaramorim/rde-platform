@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { useEstado } from '@/hooks/useEstado';
 import { API_URL, formatMoney, Currency, errToText } from '@/lib/constants';
 import { toast } from '@/components/Toast';
+import LogTerminalModal from '@/components/LogTerminalModal';
+
 
 interface Trade {
   id: string;
@@ -59,8 +61,10 @@ export default function DashboardPage() {
   const [telegramAuthError, setTelegramAuthError] = useState<string | null>(null);
   const [telegramCodeHash, setTelegramCodeHash] = useState<string | null>(null);
   const [clientTime, setClientTime] = useState<string>('--:--:--');
+  const [showLogsModal, setShowLogsModal] = useState<boolean>(false);
 
   const requisitando = useRef(false);
+
 
   useEffect(() => {
     setClientTime(new Date().toLocaleTimeString('pt-BR'));
@@ -519,12 +523,21 @@ export default function DashboardPage() {
                     }
                   </button>
 
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={() => setShowLogsModal(true)}
+                      className="flex-1 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-cyan-400 hover:text-cyan-300 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                    >
+                      🖥️ Ver Console de Logs
+                    </button>
+                  </div>
+
                   <button 
                     onClick={async () => {
                       try { await fetch(`${API_URL}/telegram/logout`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } }); } catch {}
                       setTelegramAuthState("idle");
                     }}
-                    className="w-full text-center text-[11px] text-slate-500 hover:text-slate-300 font-bold mt-3 transition-colors cursor-pointer">
+                    className="w-full text-center text-[11px] text-slate-500 hover:text-slate-300 font-bold mt-2 transition-colors cursor-pointer">
                     📱 Trocar / Reautenticar Número do Telegram
                   </button>
                 </>
@@ -595,7 +608,15 @@ export default function DashboardPage() {
             </p>
             <p className="text-[11px] text-slate-500">Fuso Horário Padrão de Execução: America/Sao_Paulo (UTC-3)</p>
           </div>
+
+          {/* Modal de Logs em Tempo Real */}
+          <LogTerminalModal
+            isOpen={showLogsModal}
+            onClose={() => setShowLogsModal(false)}
+            token={token}
+            isAdmin={Boolean(estado?.is_admin)}
+          />
       </div>
     </div>
   );
-}
+}

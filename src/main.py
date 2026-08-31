@@ -556,8 +556,78 @@ async def stop_copier(user: User = Depends(current_active_user)):
         return {"status": "error", "detail": str(e)}
 
 
+# ====================== LOGS DO COPIER (TERMINAL AO VIVO) ======================
+
+def _read_copier_log_lines(lines: int = 200, filter_query: Optional[str] = None):
+    import os
+    log_file = "copier.log"
+    if not os.path.exists(log_file):
+        return {"status": "ok", "lines": ["Nenhum log gerado ainda (arquivo copier.log vazio)."], "total_lines": 0, "size_kb": 0.0}
+
+    try:
+        size_kb = round(os.path.getsize(log_file) / 1024, 2)
+        with open(log_file, "r", encoding="utf-8", errors="replace") as f:
+            all_lines = f.readlines()
+
+        total = len(all_lines)
+        if filter_query:
+            q = filter_query.lower()
+            filtered = [l.rstrip("\r\n") for l in all_lines if q in l.lower()]
+            selected = filtered[-lines:]
+        else:
+            selected = [l.rstrip("\r\n") for l in all_lines[-lines:]]
+
+        return {
+            "status": "ok",
+            "lines": selected,
+            "total_lines": total,
+            "size_kb": size_kb,
+            "returned_lines": len(selected),
+        }
+    except Exception as e:
+        return {"status": "error", "message": f"Erro ao ler arquivo de log: {e}", "lines": []}
+
+
+@app.get("/admin/logs/copier", tags=["Admin"])
+async def get_admin_copier_logs(
+    lines: int = 200,
+    filter: Optional[str] = None,
+    user: User = Depends(current_active_user),
+):
+    if not getattr(user, "is_admin", False):
+        raise HTTPException(status_code=403, detail="Acesso restrito ao Administrador.")
+    return _read_copier_log_lines(lines=lines, filter_query=filter)
+
+
+@app.delete("/admin/logs/copier", tags=["Admin"])
+async def clear_admin_copier_logs(
+    user: User = Depends(current_active_user),
+):
+    if not getattr(user, "is_admin", False):
+        raise HTTPException(status_code=403, detail="Acesso restrito ao Administrador.")
+    import os
+    if os.path.exists("copier.log"):
+        try:
+            with open("copier.log", "w", encoding="utf-8") as f:
+                f.write(f"--- Log limpo pelo Administrador em {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')} ---\n")
+            return {"status": "ok", "message": "Arquivo de log limpo com sucesso."}
+        except Exception as e:
+            return {"status": "error", "message": f"Erro ao limpar log: {e}"}
+    return {"status": "ok", "message": "Arquivo de log não existia."}
+
+
+@app.get("/copier/logs", tags=["Copier"])
+async def get_user_copier_logs(
+    lines: int = 200,
+    filter: Optional[str] = None,
+    user: User = Depends(current_active_user),
+):
+    return _read_copier_log_lines(lines=lines, filter_query=filter)
+
+
 @app.post("/telegram/test", tags=["Telegram"])
 async def telegram_test(user: User = Depends(current_active_user)):
+
     ok = await TelegramBot.send_message(
         f"<b>RDE Platform</b>\n\n"
         f"Teste de conexao realizado por <b>{user.email}</b>\n"

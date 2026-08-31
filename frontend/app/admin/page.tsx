@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useEstado } from "@/hooks/useEstado";
 import { API_URL, errToText } from "@/lib/constants";
 
+import LogTerminalModal from "@/components/LogTerminalModal";
+
 interface User {
     id: string;
     email: string;
@@ -36,6 +38,8 @@ export default function AdminPage() {
     const [modalPlan, setModalPlan] = useState("Free");
     const [saving, setSaving] = useState(false);
     const [saveMsg, setSaveMsg] = useState("");
+    const [showLogsModal, setShowLogsModal] = useState(false);
+
 
     // Novo cliente
     const [novoEmail, setNovoEmail]   = useState("");
@@ -294,7 +298,11 @@ export default function AdminPage() {
                     <h1 className="text-3xl font-black text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400">Painel Admin</h1>
                     <p className="text-slate-400 mt-1 text-xs">Controle de clientes e licenças</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
+                    <button onClick={() => setShowLogsModal(true)}
+                        className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-lg shadow-cyan-900/30">
+                        🖥️ Logs do Servidor
+                    </button>
                     <button onClick={() => setShowCriar(!showCriar)}
                         className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all">
                         + Novo Cliente
@@ -308,6 +316,7 @@ export default function AdminPage() {
                         Atualizar
                     </button>
                 </div>
+
             </header>
 
             {/* Banner de Status do Canal Telegram */}
@@ -641,6 +650,14 @@ export default function AdminPage() {
                     </div>
                 </div>
             )}
+
+            {/* Modal de Logs do Terminal */}
+            <LogTerminalModal
+                isOpen={showLogsModal}
+                onClose={() => setShowLogsModal(false)}
+                token={token}
+                isAdmin={true}
+            />
         </div>
     );
-}
+}
