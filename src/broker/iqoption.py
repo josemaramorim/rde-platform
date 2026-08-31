@@ -355,14 +355,14 @@ class IQOptionBroker(BaseBroker):
 
         symbol = symbol.upper()
         dir_clean = direction.lower()
-        is_otc = self._is_otc(symbol)
-
-        # Bloqueio de mercado: so para pares spot puros (nao OTC)
+        # Se mercado spot estiver fechado (ex: após 16:00 UTC-3 ou finais de semana), faz fallback automático para OTC
         if not is_otc and not self.is_market_open():
-            logger.error("MERCADO FECHADO (horario forex UTC-3). Nenhuma ordem spot sera aberta.")
-            return {"status": "error", "result": "Mercado fechado agora"}
+            logger.info(f"[MERCADO FECHADO] Mercado Spot fechado para '{symbol}'. Fazendo fallback automático para '{symbol}-OTC'...")
+            symbol = f"{symbol}-OTC"
+            is_otc = True
 
         # Recarrega asset map / open-status para refletir estado atual da corretora
+
         if not self._asset_map:
             logger.warning("Asset map vazio! Recarregando...")
             self._wait_init()

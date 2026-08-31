@@ -1436,10 +1436,6 @@ class TelegramCopier:
         monitored_names = []
         try:
             dialogs = await self.client.get_dialogs(limit=100)
-            logger.info("📋 [TELEGRAM] Canais e grupos disponíveis na conta:")
-            for d in dialogs:
-                if d.is_channel or d.is_group:
-                    logger.info(f"   🔹 '{d.name}' (ID: {d.id})")
 
             # 1. Se target_chats foi definido por ID numérico, valida contra os dialogs
             if self.target_chats:
@@ -1455,7 +1451,6 @@ class TelegramCopier:
                     if (d.is_channel or d.is_group) and (cfg_clean in d_clean or d_clean in cfg_clean or group_name_cfg.lower() in d.name.lower()):
                         self.target_chats = [d.id]
                         monitored_names.append(f"'{d.name}' (ID: {d.id})")
-                        logger.info(f"🎯 [TELEGRAM] Canal resolvido com sucesso pelo nome: '{d.name}' (ID: {d.id})")
                         break
 
             # 3. Fallback inteligente apenas se o nome configurado for variações de R&DE
@@ -1464,7 +1459,6 @@ class TelegramCopier:
                     if (d.is_channel or d.is_group) and ("r&de" in d.name.lower() or "rde" in d.name.lower()):
                         self.target_chats = [d.id]
                         monitored_names.append(f"'{d.name}' (ID: {d.id})")
-                        logger.info(f"🎯 [TELEGRAM] Canal auto-detectado: '{d.name}' (ID: {d.id})")
                         break
         except Exception as e:
             logger.debug(f"Falha ao validar canais: {e}")
@@ -1478,37 +1472,39 @@ class TelegramCopier:
             self.is_running = False
             return
 
-        logger.info(f"🎯 [TELEGRAM] Monitorando EXCLUSIVAMENTE o canal configurado: {', '.join(monitored_names)}")
+        logger.info(f"🎯 [TELEGRAM] Canal ativo e monitorado exclusivamente: {monitored_names[0]}")
         self.update_live_status(f"Monitorando canal: {monitored_names[0]}")
 
+        # Configura listener estritamente nos chats alvos configurados
         @self.client.on(events.NewMessage(chats=self.target_chats))
         async def handler(event):
             try:
-                # Trava estrita de segurança: garante que NUNCA processe mensagem fora do canal alvo
+                # Trava estrita adicional: nunca processar mensagem de outro chat
                 if not self.target_chats or event.chat_id not in self.target_chats:
                     return
+
                 text = event.message.text
                 if not text: return
 
-                
-                chat_title = "Chat Desconhecido"
+                raw = text.upper()
+                # 1. Ignora mensagens de resultado/placar (ex: WIN NA PRIMEIRA, RESULTADO DE EURUSD)
+                result_keywords = ["WIN NA PRIMEIRA", "WIN DE PRIMEIRA", "WIN NO GALE", "RESULTADO DE", "RESULTADO:", "PLACAR", "LOSS NA", "LOSS NO"]
+                if any(kw in raw for kw in result_keywords):
+                    if not any(k in raw for k in ["SINAL", "ENTRADA", "ENTRE AGORA"]):
+                        return
+
+                chat_title = "R&DE🇧🇷"
                 try:
                     chat = await event.get_chat()
                     chat_title = getattr(chat, 'title', None) or getattr(chat, 'first_name', None) or f"ID:{event.chat_id}"
                 except Exception:
-                    chat_title = f"ID:{event.chat_id}"
-
-                logger.info(f"📨 MSG RECEBIDA de [{chat_title}]: {text[:200]}")
-
-                raw = text.upper()
-                if any(kw in raw for kw in ["WIN DE PRIMEIRA", "LOSS", "GANHO", "PERDA", "RESULTADO"]):
-                    if "SINAL" not in raw:
-                        logger.info(f"[PARSE] Mensagem de resultado ignorada")
-                        return
+                    pass
 
                 signal = self.parse_signal(text)
                 if signal:
+                    logger.info(f"🎯 [SINAL CONFIRMADO] {signal['direction']} {signal['symbol']} {signal['timeframe']} recebido de [{chat_title}]")
                     await self.execute_trade(signal)
+
             except Exception as e:
                 logger.error(f"Erro no handler: {e}")
 
