@@ -796,8 +796,6 @@ class TelegramCopier:
         is_pre_signal = any(p in raw for p in ["AGUARDE CONFIRMA", "AGUARDE A CONFIRMA", "PREPARE PARA", "ANALISANDO"])
         is_confirmed = any(c in raw for c in ["CONFIRMADO", "CONFIRMADA", "ENTRE AGORA", "ENTRADA", "SINAL", "(AGORA)"])
         if is_pre_signal and not is_confirmed:
-            logger.info("[PARSE] Mensagem de Pré-Alerta / Preparação detectada ('Aguarde confirmação'). Aguardando mensagem oficial de disparo...")
-            self.update_live_status("⏳ Radar: Pré-alerta recebido. Aguardando confirmação oficial...")
             return None
 
         # 1. Direção
@@ -817,35 +815,30 @@ class TelegramCopier:
         m = re.search(r'([A-Z0-9]{3,10}[-_]OTC[A-Z]?)', raw)
         if m:
             symbol = m.group(1).rstrip("I")
-            logger.info(f"[PARSE] Ativo OTC detectado: {symbol}")
 
         if not symbol:
             # 2b. Sinteticos Deriv: V10, V25, V50, V75, V100, V250, CRASH*, BOOM*, STEP*
             m = re.search(r'\b(V(?:10|25|50|75|100|250)|CRASH(?:1000|500|300|100)|BOOM(?:1000|500|300|100)|STEP(?:10|25|50))\b', raw)
             if m:
                 symbol = m.group(1)
-                logger.info(f"[PARSE] Sintetico Deriv detectado: {symbol}")
 
         if not symbol:
             # 2c. Deriv direto: R_10, R_25, 1HZ50V, JD100, etc.
             m = re.search(r'(R_[0-9]{1,3}|1HZ[0-9]{1,3}V|JD[0-9]{1,3})', raw)
             if m:
                 symbol = m.group(1)
-                logger.info(f"[PARSE] Ativo Deriv detectado: {symbol}")
 
         if not symbol:
             # 2d. Pares forex sem OTC: EURUSD, GBPUSD, AUDUSD, etc.
             m = re.search(r'\b(EUR|GBP|AUD|NZD|USD|CAD|CHF|JPY|XAU|BTC|ETH)(USD|GBP|JPY|EUR|CHF|CAD|AUD|NZD)\b', raw)
             if m:
                 symbol = m.group(0)
-                logger.info(f"[PARSE] Par forex detectado: {symbol}")
 
         if not symbol:
             # 2e. Índices e Cripto/Commodities conhecidos: US100, US30, SP500, SP35, EU50, GER30, etc.
             m = re.search(r'\b(US100|US30|SP500|SP35|EU50|GER30|GER40|BRA50|HK50|JP225|JAPAN225|BTCUSD|ETHUSD|XAUUSD|OIL|WTI)\b', raw)
             if m:
                 symbol = m.group(1)
-                logger.info(f"[PARSE] Índice/Ativo detectado: {symbol}")
 
         if not symbol:
             # 2f. Fallback: qualquer palavra 4-10 letras que pareca ativo financeiro
@@ -877,7 +870,6 @@ class TelegramCopier:
                 candidate = m.group(1)
                 if candidate not in skip_words and not candidate.startswith("EXPIR"):
                     symbol = candidate
-                    logger.info(f"[PARSE] Ativo detectado (fallback): {symbol}")
                     break
 
 
@@ -1039,76 +1031,31 @@ class TelegramCopier:
         try:
             self._balance_before_trade = self.current_balance
             result = None
-            for attempt in range(3):
-                try:
-                    if self.broker is None:
-                        reconnected = await self.connect_broker()
 
-                        if not reconnected:
-                            logger.error("Falha ao reconectar broker.")
-                            self.update_live_status("Erro: broker desconectado")
-                            self._order_in_progress = False
-                            return
+            # Alta performance: disparo único, sem retry.
+            # Se a ordem falhar por qualquer motivo, loga e descarta o sinal.
+            if self.broker is None:
+                logger.error("❌ [ORDEM DESCARTADA] Broker desconectado no momento do disparo.")
+                self.update_live_status("Erro: broker desconectado")
+                self._order_in_progress = False
+                return
 
-                    if hasattr(self.broker, "async_send_order"):
-                        result = await self.broker.async_send_order(symbol, stake, direction, duration)
-                    else:
-                        result = self.broker.send_order(symbol, stake, direction, duration)
-
-                    if result and result.get("status") == "ok":
-                        break
-
-                    if attempt < 2:
-                        err_msg = result.get("result", "") if result else "sem resposta"
-                        # "fechado" e "desconectado" sao erros de mercado/negocio — nao reconectar
-                        if any(kw in err_msg.lower() for kw in ["reconect", "conexao", "connect", "timeout"]) and "mercado fechado" not in err_msg.lower():
-                            logger.warning(f"Tentativa {attempt+1}/3: {err_msg}. Reconectando...")
-                            try:
-                                self.broker.disconnect()
-                                self.broker = None
-                            except Exception:
-                                pass
-                            wait_time = 5 + (attempt * 5)
-                            logger.info(f"Aguardando {wait_time}s antes de reconectar...")
-                            await asyncio.sleep(wait_time)
-                            reconnected = await self.connect_broker()
-                            if not reconnected:
-                                logger.error("Falha ao reconectar broker.")
-                                self.update_live_status("Erro: broker desconectado")
-                                self._order_in_progress = False
-                                return
-                            continue
-                        else:
-                            # Erro que NAO e de conexao (ex: ativo nao encontrado)
-                            # Nao reconectar — apenas retry com espera curta
-                            wait_time = 2 + (attempt * 2)
-                            logger.warning(f"Tentativa {attempt+1}/3: {err_msg}. Retry em {wait_time}s...")
-                            await asyncio.sleep(wait_time)
-                            continue
-                    break
-                except Exception as order_err:
-                    logger.warning(f"Tentativa {attempt+1}/3 de enviar ordem falhou: {order_err}")
-                    if attempt < 2:
-                        try:
-                            self.broker.disconnect()
-                            self.broker = None
-                        except Exception:
-                            pass
-                        wait_time = 5 + (attempt * 5)
-                        await asyncio.sleep(wait_time)
-                        reconnected = await self.connect_broker()
-                        if not reconnected:
-                            logger.error("Falha ao reconectar broker.")
-                            self.update_live_status("Erro: broker desconectado")
-                            self._order_in_progress = False
-                            return
-                    else:
-                        raise
+            try:
+                if hasattr(self.broker, "async_send_order"):
+                    result = await self.broker.async_send_order(symbol, stake, direction, duration)
+                else:
+                    result = self.broker.send_order(symbol, stake, direction, duration)
+            except Exception as order_err:
+                logger.error(f"❌ [ORDEM DESCARTADA] Exceção ao enviar ordem: {order_err}")
+                self.update_live_status(f"Erro: {order_err}")
+                self._order_in_progress = False
+                return
 
             if result is None or result.get("status") != "ok":
                 if result and result.get("status") == "ignored":
                     self._order_in_progress = False
                     return
+
                 logger.error(f"Erro na ordem: {result.get('result') if result else 'no result'}")
                 self.update_live_status(f"Erro: {result.get('result') if result else 'ordem falhou'}")
                 self._order_in_progress = False
