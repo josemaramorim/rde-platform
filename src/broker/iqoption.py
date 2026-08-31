@@ -190,7 +190,12 @@ class IQOptionBroker(BaseBroker):
         if self.api is None:
             return
         try:
-            open_time = self.api.api.get_all_open_time()
+            open_time = None
+            if hasattr(self.api, "get_all_open_time"):
+                open_time = self.api.get_all_open_time()
+            elif hasattr(self.api, "api") and hasattr(self.api.api, "get_all_open_time"):
+                open_time = self.api.api.get_all_open_time()
+
             if not open_time:
                 return
             for category in ("turbo", "binary", "other"):
@@ -201,6 +206,7 @@ class IQOptionBroker(BaseBroker):
             logger.info(f"Open-status atualizado: {sum(1 for v in self._open_map.values() if v)} ativos abertos de {len(self._open_map)}")
         except Exception as e:
             logger.warning(f"Falha ao consultar open-status: {e}")
+
 
     def _variation_open(self, name: str) -> bool:
         """Verifica se uma variacao especifica (nome completo) esta aberta agora."""

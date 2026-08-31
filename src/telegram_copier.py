@@ -836,7 +836,14 @@ class TelegramCopier:
                 logger.info(f"[PARSE] Par forex detectado: {symbol}")
 
         if not symbol:
-            # 2e. Fallback: qualquer palavra 4-10 letras que pareca ativo financeiro
+            # 2e. Índices e Cripto/Commodities conhecidos: US100, US30, SP500, SP35, EU50, GER30, etc.
+            m = re.search(r'\b(US100|US30|SP500|SP35|EU50|GER30|GER40|BRA50|HK50|JP225|JAPAN225|BTCUSD|ETHUSD|XAUUSD|OIL|WTI)\b', raw)
+            if m:
+                symbol = m.group(1)
+                logger.info(f"[PARSE] Índice/Ativo detectado: {symbol}")
+
+        if not symbol:
+            # 2f. Fallback: qualquer palavra 4-10 letras que pareca ativo financeiro
             skip_words = {
                 "SINAL", "ENTRY", "ENTRADA", "EXPIRA", "EXPIRATION",
                 "COMPR", "VENDA", "SELL", "BUY", "CALL", "PUT",
@@ -846,7 +853,7 @@ class TelegramCopier:
                 "SESSAO", "META", "STOP", "WIN", "LOSS",
                 "PAPEL", "MERCADO", "TENDENCIA", "SINALX",
                 "TELEGRAM", "SUGESTAO", "ANALISE", "OPERAR",
-                "RESULTADO", "CONFIRMA", "AGUARDE", "LIBERADO",
+                "RESULTADO", "CONFIRMA", "CONFIRMADO", "AGUARDE", "LIBERADO",
                 "DIRECAO", "TIPO", "ATIVO", "PAR", "TEMPO",
                 "MINUTO", "HORA", "DIA", "SEMANA", "MES",
                 "ROBO", "BOT", "SISTEMA", "PLATAFORMA",
@@ -855,7 +862,11 @@ class TelegramCopier:
                 "OPTION", "OPTIONS", "TURBO", "FOREX", "CRYPTO", "CRIPTO",
                 "FUTURE", "FUTURES", "FUTURO", "FUTUROS", "PATRIOT", "PATRIOTA",
                 "CORRETORA", "CORRETORAS", "SINAIS", "CANAL", "GRUPO",
-                "VIP", "PREMIUM", "FREE", "GRATIS", "SUPORTE", "ADM", "ADMIN"
+                "VIP", "PREMIUM", "FREE", "GRATIS", "SUPORTE", "ADM", "ADMIN",
+                "KILLER", "SAFIRION", "ESTRATEGIA", "ESTRAT", "ANALISANDO", "PREPARE",
+                "LIVE", "ADAX", "BROKER", "MEMBERS", "MANAGEMENT", "SERVICES",
+                "PERFORMANCE", "PROTECAO", "CAIXA", "RAPIDO", "WILTRADER", "TRADING",
+                "ELITE", "GOLD", "EVERYDAY", "SISTER", "BROTHER"
             }
             for m in re.finditer(r'\b([A-Z]{4,10})\b', raw):
                 candidate = m.group(1)
@@ -863,6 +874,7 @@ class TelegramCopier:
                     symbol = candidate
                     logger.info(f"[PARSE] Ativo detectado (fallback): {symbol}")
                     break
+
 
         if not symbol:
             return None
@@ -1409,21 +1421,38 @@ class TelegramCopier:
         monitored_names = []
         try:
             dialogs = await self.client.get_dialogs(limit=100)
-            group_name_cfg = (settings.TELEGRAM_GROUP_NAME or "").strip().lower()
+            logger.info("📋 [TELEGRAM] Canais e grupos disponíveis na conta:")
+            for d in dialogs:
+                if d.is_channel or d.is_group:
+                    logger.info(f"   🔹 '{d.name}' (ID: {d.id})")
+
+            # Remove aspas e normaliza o nome configurado
+            group_name_cfg = (settings.TELEGRAM_GROUP_NAME or "").strip().strip('"').strip("'").lower()
             
-            # Se target_chats não foi definido ou o ID não foi encontrado nos dialogs, busca pelo nome
+            # 1. Se target_chats foi definido por ID, valida contra os dialogs
             if self.target_chats:
                 for d in dialogs:
                     if d.id in self.target_chats:
                         monitored_names.append(f"'{d.name}' (ID: {d.id})")
             
-            # Fallback inteligente: se não encontrou pelo ID mas tem TELEGRAM_GROUP_NAME, busca pelo nome
+            # 2. Se não encontrou por ID mas tem nome configurado, busca pelo nome
             if not monitored_names and group_name_cfg:
                 for d in dialogs:
-                    if (d.is_channel or d.is_group) and (group_name_cfg in d.name.lower() or d.name.lower() in group_name_cfg):
+                    d_clean = d.name.lower().replace(" ", "").replace("_", "")
+                    cfg_clean = group_name_cfg.replace(" ", "").replace("_", "")
+                    if (d.is_channel or d.is_group) and (cfg_clean in d_clean or d_clean in cfg_clean or group_name_cfg in d.name.lower() or "r&de" in d.name.lower()):
                         self.target_chats = [d.id]
                         monitored_names.append(f"'{d.name}' (ID: {d.id})")
-                        logger.info(f"[TELEGRAM] Canal resolvido com sucesso pelo nome: '{d.name}' (ID: {d.id})")
+                        logger.info(f"🎯 [TELEGRAM] Canal resolvido com sucesso pelo nome: '{d.name}' (ID: {d.id})")
+                        break
+            
+            # 3. Se ainda não encontrou, busca canal que contenha 'r&de' ou 'rde'
+            if not monitored_names:
+                for d in dialogs:
+                    if (d.is_channel or d.is_group) and ("r&de" in d.name.lower() or "rde" in d.name.lower() or "patriot" in d.name.lower()):
+                        self.target_chats = [d.id]
+                        monitored_names.append(f"'{d.name}' (ID: {d.id})")
+                        logger.info(f"🎯 [TELEGRAM] Canal auto-detectado: '{d.name}' (ID: {d.id})")
                         break
         except Exception as e:
             logger.debug(f"Falha ao validar canais: {e}")
@@ -1433,7 +1462,8 @@ class TelegramCopier:
         elif self.target_chats:
             logger.info(f"🎯 [TELEGRAM] Monitorando canal(is) configurado(s) por ID: {self.target_chats}")
         else:
-            logger.warning("⚠️ [TELEGRAM] AVISO: Nenhum canal alvo específico configurado. Recomendado definir TELEGRAM_CHAT_ID ou TELEGRAM_GROUP_NAME no .env.")
+            logger.warning("⚠️ [TELEGRAM] AVISO: Nenhum canal alvo específico configurado. O robô está ouvindo todos os grupos.")
+
 
         @self.client.on(events.NewMessage(chats=self.target_chats))
         async def handler(event):
