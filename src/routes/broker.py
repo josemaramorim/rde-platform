@@ -607,10 +607,6 @@ async def refresh_balance(
         except Exception as pool_err:
             logger.error(f"Erro no pool de busca de saldos: {pool_err}")
             raw_results = []
-    finally:
-        with _active_refresh_lock:
-            _active_refresh_users.discard(user.id)
-
 
         results = []
         for i, res in enumerate(raw_results):
@@ -660,6 +656,11 @@ async def refresh_balance(
 
     except Exception as e:
         return {"status": "error", "balance": 0.0, "broker": (user.broker or "iqoption"), "brokers": [], "message": str(e)}
+
+    finally:
+        with _active_refresh_lock:
+            _active_refresh_users.discard(user.id)
+
 
 
 class TestTradeRequest(BaseModel):
