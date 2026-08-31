@@ -191,11 +191,12 @@ class IQOptionBroker(BaseBroker):
             if not open_time or not isinstance(open_time, dict):
                 return
             for category in ("turbo", "binary", "other", "digital"):
-                cat_data = open_time.get(category, {})
-                if isinstance(cat_data, dict):
-                    for name, info in cat_data.items():
-                        if isinstance(info, dict) and "open" in info:
-                            self._open_map[name] = bool(info["open"])
+                cat_data = open_time.get(category) or {}
+                if not isinstance(cat_data, dict):
+                    continue
+                for name, info in cat_data.items():
+                    if info and isinstance(info, dict) and "open" in info:
+                        self._open_map[name] = bool(info["open"])
             if self._open_map:
                 logger.info(f"Open-status atualizado: {sum(1 for v in self._open_map.values() if v)} ativos abertos de {len(self._open_map)}")
         except Exception as e:
