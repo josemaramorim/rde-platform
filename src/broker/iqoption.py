@@ -389,11 +389,8 @@ class IQOptionBroker(BaseBroker):
         dir_clean = direction.lower()
         is_otc = self._is_otc(symbol)
 
-        # Se mercado spot estiver fechado (ex: após 16:00 UTC-3 ou finais de semana), faz fallback automático para OTC
-        if not is_otc and not self.is_market_open():
-            logger.info(f"[MERCADO FECHADO] Mercado Spot fechado para '{symbol}'. Fazendo fallback automático para '{symbol}-OTC'...")
-            symbol = f"{symbol}-OTC"
-            is_otc = True
+        # Alta performance: executa EXATAMENTE o ativo do sinal.
+        # Se nao disponivel, loga e descarta — sem substituicao automatica.
 
         # Asset map e open-status sao pre-carregados pelo background thread.
         # Nunca bloqueamos o caminho critico de envio de ordem aqui.
@@ -409,85 +406,32 @@ class IQOptionBroker(BaseBroker):
                     candidates = vals
                     break
 
-        # --- PASSO 2: Se nao achou, usa _resolve_asset (fallback por base_symbol) ---
         if not candidates:
-            resolved = self._resolve_asset(symbol)
-            if resolved and resolved[0]:
-                real_name, aid, commission = resolved
-                candidates = [(real_name, aid, commission)]
-                logger.info(f"[RESOLVE] Ativo '{symbol}' resolvido via fallback -> '{real_name}' (id={aid})")
+            logger.error(f"❌ [SINAL DESCARTADO] Ativo '{symbol}' nao encontrado na corretora. Aguardando proximo sinal.")
+            return {"status": "error", "result": f"Ativo {symbol} nao encontrado"}
 
-        # --- PASSO 3: Se ainda nada, tenta variants com OTC/spot complementar ---
-        if not candidates:
-            otc_variant = symbol + "-OTC" if not is_otc else re.sub(r'[-_]OTC[A-Z]?$', '', symbol)
-            candidates = self._asset_map.get(otc_variant, [])
-            if not candidates:
-                for key, vals in self._asset_map.items():
-                    if key.upper().replace("_", "-") == otc_variant.upper().replace("_", "-") and vals:
-                        candidates = vals
-                        break
-            if candidates:
-                logger.info(f"[FALLBACK] Ativo '{symbol}' nao encontrado; usando variante '{otc_variant}'")
-
-        if not candidates:
-            logger.error(f"Ativo '{symbol}' NAO existe na corretora. "
-                         f"Keys disponiveis: {list(self._asset_map.keys())[:20]}")
-            return {"status": "error", "result": f"Ativo {symbol} inexistente na corretora"}
-
-        # --- PASSO 4: Filtra variacoes ABERTAS, mas aceita todas como fallback ---
+        # Filtra variacoes ABERTAS agora
         entries = [e for e in candidates if self._variation_open(e[0])]
         if not entries:
-            # Nenhuma variacao reportada como aberta — usa todas mesmo assim
-            # (OTC opera 24/7 e _open_map pode nao refletir isso)
-            entries = candidates
-            logger.warning(f"Nenhuma variacao de '{symbol}' confirmada aberta. "
-                           f"Usando {len(entries)} variacao(oes) disponivel(is).")
+            logger.error(f"❌ [SINAL DESCARTADO] Ativo '{symbol}' esta fechado/suspenso agora. Aguardando proximo sinal.")
+            return {"status": "error", "result": f"Ativo {symbol} fechado agora"}
         entries = sorted(entries, key=lambda e: e[2])
 
         last_err = ""
         for name, aid, commission in entries:
             payout = 100 - commission
             logger.info(f"Tentando {symbol} ({name}, id={aid}, payout={payout}%): {dir_clean.upper()} ${stake}")
-            for attempt in range(3):
-                status, oid = self._buyv3(aid, stake, dir_clean, duration)
-                if status:
-                    logger.info(f"Ordem executada: {symbol} {dir_clean} id={oid} (variacao {name})")
-                    return {"status": "ok", "result": f"Sucesso ({payout}%)", "order_id": oid,
-                            "variation": name, "payout": payout}
-                err = oid if oid else "sem resposta"
-                err_lower = str(err).lower()
-                skip_errors = ["not available", "invalid", "not found", "does not exist",
-                               "inactive", "suspended", "closed", "unavailable"]
-                if any(kw in err_lower for kw in skip_errors):
-                    last_err = err
-                    logger.warning(f"{name} indisponivel agora: {err}. Tentando proxima variacao...")
-                    break
-                logger.warning(f"Tentativa {attempt+1}/3 para {name} falhou: {err}")
-                last_err = err
-                time.sleep(1)
+            status, oid = self._buyv3(aid, stake, dir_clean, duration)
+            if status:
+                logger.info(f"Ordem executada: {symbol} {dir_clean} id={oid} (variacao {name})")
+                return {"status": "ok", "result": f"Sucesso ({payout}%)", "order_id": oid,
+                        "variation": name, "payout": payout}
+            last_err = oid if oid else "sem resposta"
+            logger.warning(f"{name} recusado pela corretora: {last_err}")
 
-        # Fallback Inteligente: Se a variação primária estiver suspensa (ex: OTC em dia de semana), tenta a contraparte
-        alt_symbol = re.sub(r'[-_]OTC[A-Z]?$', '', symbol) if is_otc else f"{symbol}-OTC"
-        alt_candidates = self._asset_map.get(alt_symbol, [])
-        if not alt_candidates:
-            alt_norm = alt_symbol.upper().replace("_", "-")
-            for key, vals in self._asset_map.items():
-                if key.upper().replace("_", "-") == alt_norm and vals:
-                    alt_candidates = vals
-                    break
+        logger.error(f"❌ [SINAL DESCARTADO] Ativo '{symbol}' recusado pela corretora: {last_err}. Aguardando proximo sinal.")
+        return {"status": "error", "result": f"{symbol} recusado: {last_err}"}
 
-        if alt_candidates:
-            logger.info(f"[FALLBACK MERCADO] Variacao '{symbol}' indisponivel ({last_err}). Tentando contraparte '{alt_symbol}'...")
-            for name, aid, commission in alt_candidates:
-                payout = 100 - commission
-                logger.info(f"Tentando contraparte {alt_symbol} ({name}, id={aid}, payout={payout}%): {dir_clean.upper()} ${stake}")
-                status, oid = self._buyv3(aid, stake, dir_clean, duration)
-                if status:
-                    logger.info(f"Ordem executada na contraparte: {alt_symbol} {dir_clean} id={oid} (variacao {name})")
-                    return {"status": "ok", "result": f"Sucesso ({payout}%)", "order_id": oid,
-                            "variation": name, "payout": payout}
-
-        return {"status": "error", "result": f"Todas as variacoes de {symbol} fecharam/recusaram: {last_err}"}
 
 
     async def async_send_order(self, symbol: str, stake: float, direction: str, duration: int = 1) -> dict:
