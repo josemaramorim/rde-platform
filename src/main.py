@@ -996,9 +996,9 @@ async def startup():
 
             # 1. Cria os planos padrão se não existirem
             plans_data = [
-                {"name": "Free", "max_signals_per_day": 5, "max_stake": 5.0, "price_usd": 0.0, "is_demo": True, "allowed_brokers": '["iqoption", "deriv"]'},
+                {"name": "Free", "max_signals_per_day": 5, "max_stake": 5.0, "price_usd": 0.0, "is_demo": True, "allowed_brokers": '["iqoption"]'},
                 {"name": "Pro", "max_signals_per_day": 100, "max_stake": 100.0, "price_usd": 19.0, "is_demo": False, "allowed_brokers": '["iqoption", "deriv"]'},
-                {"name": "VIP", "max_signals_per_day": 99999, "max_stake": 1000.0, "price_usd": 49.0, "is_demo": False, "allowed_brokers": '["iqoption", "deriv"]'},
+                {"name": "VIP", "max_signals_per_day": 99999, "max_stake": 1000.0, "price_usd": 49.0, "is_demo": False, "allowed_brokers": '["iqoption", "deriv", "quotex", "pocketoption"]'},
             ]
             for p in plans_data:
                 r = await session.execute(select(Plan).where(Plan.name == p["name"]))

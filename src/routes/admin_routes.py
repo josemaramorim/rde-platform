@@ -237,10 +237,10 @@ async def update_plan_brokers(
     if not plan:
         raise HTTPException(status_code=404, detail=f"Plano '{payload.plan_name}' não encontrado")
 
-    valid = {"iqoption", "deriv"}
+    valid = {"iqoption", "deriv", "quotex", "pocketoption"}
     for b in payload.allowed_brokers:
         if b.lower() not in valid:
-            raise HTTPException(status_code=400, detail=f"Broker '{b}' inválido. Use: {', '.join(valid)}")
+            raise HTTPException(status_code=400, detail=f"Broker '{b}' inválido. Use: {', '.join(sorted(valid))}")
 
     plan.allowed_brokers = json.dumps([b.lower() for b in payload.allowed_brokers])
     db.add(plan)
@@ -253,3 +253,41 @@ async def update_plan_brokers(
     await db.commit()
     log_admin(admin.email, "update_plan_brokers", f"{plan.name}: {plan.allowed_brokers}")
     return {"status": "success", "plan": plan.name, "allowed_brokers": json.loads(plan.allowed_brokers)}
+
+
+# Regras canônicas de corretoras por plano
+_PLAN_BROKER_RULES = {
+    "free":  ["iqoption"],
+    "pro":   ["iqoption", "deriv"],
+    "vip":   ["iqoption", "deriv", "quotex", "pocketoption"],
+}
+
+
+@router.post("/fix-plan-brokers")
+async def fix_plan_brokers(
+    db: AsyncSession = Depends(get_async_session),
+    admin: User = Depends(current_superuser),
+):
+    """Atualiza os brokers de TODOS os planos existentes no banco para as regras corretas.
+    Use este endpoint após o primeiro deploy com as novas regras.
+    """
+    result = await db.execute(select(Plan))
+    plans = result.scalars().all()
+    updated = []
+    for plan in plans:
+        key = plan.name.lower()
+        if key in _PLAN_BROKER_RULES:
+            new_brokers = json.dumps(_PLAN_BROKER_RULES[key])
+            old_brokers = plan.allowed_brokers
+            plan.allowed_brokers = new_brokers
+            db.add(plan)
+            updated.append({"plan": plan.name, "before": old_brokers, "after": new_brokers})
+    db.add(AdminLog(
+        admin_email=admin.email,
+        action="fix_plan_brokers",
+        target_user=None,
+        detail=str(updated)
+    ))
+    await db.commit()
+    log_admin(admin.email, "fix_plan_brokers", str(updated))
+    return {"status": "success", "updated": updated}
