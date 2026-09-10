@@ -128,3 +128,7 @@ docs/*
 !docs/ARQUITETURA_FRONTEND_PRODUCAO.md
 !docs/PERFORMANCE_OPTIMIZATION_PLAN.md
 !docs/GUIA_POSTGRESQL_E_ADMIN.md
+
+# Processo SDD (regras, impedimentos, specs — mantido no git)
+!docs/sdd/
+!docs/sdd/**
