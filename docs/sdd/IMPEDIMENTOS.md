@@ -12,7 +12,7 @@ Status possíveis: `Aberto` · `Em análise` · `Spec aprovada` · `Resolvido`.
 - **Onde:** `src/main.py` (`copier.pid`, `copier.log`, rotas `/copier/toggle` e `/telegram/start-copier`)
 - **Problema:** o arquivo de PID e o log do processo do Telegram copier não são namespaced por usuário. Iniciar o copier de um usuário pode matar a sessão de outro usuário que já estava operando.
 - **Bloqueia:** rodar mais de um usuário com copier ativo ao mesmo tempo com segurança.
-- **Status:** Aberto
+- **Status:** Resolvido — spec `docs/sdd/specs/002-copier-pid-log-por-usuario.md` (PR #6, 2026-09-11). PID e log passaram a ser `copier_{user_id}.pid`/`.log`; também fechou um vazamento de log entre usuários (`/copier/logs`) não registrado originalmente aqui, e removeu `/telegram/start-copier`/`/telegram/stop-copier` (mortos, mesmo bug).
 
 ### IMP-002 — `get_balance()` bloqueante no event loop compartilhado
 - **Onde:** `src/broker/iqoption.py`, `src/broker/deriv.py`, `src/broker/_utils.py:run_async`, uso em `src/telegram_copier.py` (heartbeat 30s) e `src/routes/tradingview_bridge.py` (cache de broker)

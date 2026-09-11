@@ -1,6 +1,6 @@
 # 002 — Namespace por usuário para PID/log do Telegram copier
 
-- **Status:** Em revisão
+- **Status:** Implementado (PR #6, mergeado em 2026-09-11)
 - **Autor:** josemaramorim (via Claude)
 - **Data:** 2026-09-11
 - **Impedimento(s) relacionado(s):** IMP-001 (`docs/sdd/IMPEDIMENTOS.md`). Encosta em IMP-011 (dois endpoints legados mortos, propostos para remoção) e IMP-010 (`main.py` god file).
@@ -57,15 +57,15 @@ Um copier **já em execução** no momento do deploy foi spawnado escrevendo no 
 
 ## Critérios de aceite
 
-- [ ] `grep -rn '"copier\.pid"\|"copier\.log"' src/` não encontra mais nenhuma ocorrência do nome global fixo.
-- [ ] Dois usuários de teste: A liga o copier (`/copier/toggle`, `active=true`) → cria `copier_<A>.pid`/`copier_<A>.log`. B liga o copier em seguida → cria `copier_<B>.pid`/`copier_<B>.log` **sem** matar o processo de A (`psutil.pid_exists` no PID de A continua `True`).
-- [ ] B desliga o copier (`active=false`) → só o processo de B morre; A continua rodando.
-- [ ] `GET /copier/logs` de B não retorna nenhuma linha do log de A.
-- [ ] `GET /telegram/status` e `GET /dashboard/live` de B reportam `copier_running=false` enquanto só o de A está rodando.
-- [ ] `GET /admin/logs/copier` sem `user_id` retorna `400` com mensagem clara; com `user_id` retorna o log daquele usuário.
-- [ ] Ao subir o app com arquivos `copier_<X>.pid` stale (processo morto), a limpeza do `startup()` remove cada um sem tocar em `copier_<Y>.pid` de um processo vivo.
-- [ ] `POST /telegram/start-copier` e `POST /telegram/stop-copier` não existem mais (404); `/copier/toggle` continua funcionando normalmente para start/stop.
-- [ ] App sobe sem erro; fluxo completo `/copier/toggle` on → sinal de teste → off testado manualmente em ambiente de dev com pelo menos 2 usuários simultâneos.
+- [x] `grep -rn '"copier\.pid"\|"copier\.log"' src/` não encontra mais nenhuma ocorrência do nome global fixo.
+- [x] Dois usuários de teste: A liga o copier (`/copier/toggle`, `active=true`) → cria `copier_<A>.pid`/`copier_<A>.log`. B liga o copier em seguida → cria `copier_<B>.pid`/`copier_<B>.log` **sem** matar o processo de A (`psutil.pid_exists` no PID de A continua `True`).
+- [x] B desliga o copier (`active=false`) → só o processo de B morre; A continua rodando.
+- [x] `GET /copier/logs` de B não retorna nenhuma linha do log de A.
+- [x] `GET /telegram/status` e `GET /dashboard/live` de B reportam `copier_running=false` enquanto só o de A está rodando.
+- [x] `GET /admin/logs/copier` sem `user_id` retorna `400` com mensagem clara; com `user_id` retorna o log daquele usuário.
+- [x] Ao subir o app com arquivos `copier_<X>.pid` stale (processo morto), a limpeza do `startup()` remove cada um sem tocar em `copier_<Y>.pid` de um processo vivo.
+- [x] `POST /telegram/start-copier` e `POST /telegram/stop-copier` não existem mais (404); `/copier/toggle` continua funcionando normalmente para start/stop.
+- [x] App sobe sem erro; fluxo completo `/copier/toggle` on → sinal de teste → off testado manualmente em ambiente de dev com pelo menos 2 usuários simultâneos.
 
 ## Impacto em performance
 
@@ -78,5 +78,5 @@ Um copier **já em execução** no momento do deploy foi spawnado escrevendo no 
 
 ## Aprovação
 
-- [ ] Revisado contra `docs/sdd/CONSTITUICAO.md` (§1 sem impacto de performance; §3 zona de alto risco — autorização explícita obrigatória; §5 remoção de código morto ambíguo; §7 autorização)
-- [ ] Aprovado explicitamente pelo usuário antes do início da implementação
+- [x] Revisado contra `docs/sdd/CONSTITUICAO.md` (§1 sem impacto de performance; §3 zona de alto risco — autorização explícita obrigatória; §5 remoção de código morto ambíguo; §7 autorização)
+- [x] Aprovado explicitamente pelo usuário antes do início da implementação (2026-09-11, incluindo as 3 decisões de escopo: remover endpoints legados, sem migração para o órfão de deploy, `/admin/logs/copier` exige `user_id`)
