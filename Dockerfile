@@ -30,6 +30,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
+# vendor/ precisa estar presente antes do pip install (requirements.txt referencia
+# -e ./vendor/iqoptionapi -- ver vendor/iqoptionapi/VENDORED.md)
+COPY vendor/ ./vendor/
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
