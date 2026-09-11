@@ -216,7 +216,22 @@ def execute_trade(user, signal: str, db,
                     except Exception:
                         continue
                 outcome = "win" if trade_status == "won" else "loss"
-                profit_delta = float(stake * 0.85 if outcome == "win" else -stake)
+                if outcome == "win":
+                    # Payout real (variacao de saldo), nao um percentual fixo (IMP-005).
+                    balance_after = broker.get_balance()
+                    profit_delta = float(balance_after - balance) if balance_after and balance_after > 0 else 0.0
+                    if profit_delta <= 0:
+                        # Saldo pode nao ter atualizado ainda no broker -- tenta mais uma vez.
+                        time.sleep(3)
+                        balance_after = broker.get_balance()
+                        profit_delta = float(balance_after - balance) if balance_after and balance_after > 0 else 0.0
+                    if profit_delta <= 0:
+                        logger.warning(
+                            f"WIN confirmado mas saldo nao refletiu ganho (delta={profit_delta:.2f}). Registrando profit=0."
+                        )
+                        profit_delta = 0.0
+                else:
+                    profit_delta = -stake
                 session.register_result(profit_delta)
                 session.update_balance(balance + profit_delta)
                 _write_live_status(

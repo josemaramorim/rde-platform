@@ -751,16 +751,30 @@ def _do_wait_and_resolve(user_id, broker, broker_setting_id, broker_name, sessio
             else:
                 logger.warning(f"[RESOLVE] Nao conseguiu obter saldo. Assumindo LOSS: -${stake:.2f}")
 
-        elif broker_name in ("deriv", "deriv_demo", "deriv_real") and hasattr(broker, "get_contract_status"):
+        else:
+            # Deriv, Quotex, Pocket Option (e qualquer broker futuro): mesmo metodo
+            # generico da IQ Option acima -- variacao real de saldo, sem parsing de
+            # contrato especifico por corretora nem payout hardcoded (IMP-005).
+            #
+            # Substituiu um branch dedicado da Deriv que comparava
+            # broker.get_contract_status(contract_id) (retorna STRING "won"/"lost")
+            # com .get("result") (metodo de dict) -- sempre lancava AttributeError,
+            # silenciado pelo except externo, e todo trade Deriv virava LOSS aqui.
             try:
-                status = broker.get_contract_status(contract_id)
                 balance_after = broker.get_balance()
-                if status and status.get("result") == "won":
-                    profit = stake * 0.85
-                elif status and status.get("result") == "lost":
-                    profit = -stake
+                if balance_after and balance_after > 0:
+                    profit = balance_after - (session_manager.current_balance or session_manager.initial_balance)
+                    if profit > 0:
+                        logger.info(f"[RESOLVE] WIN detectado por saldo ({broker_name}): {profit:.2f}")
+                    elif profit < 0:
+                        logger.info(f"[RESOLVE] LOSS detectado por saldo ({broker_name}): {profit:.2f}")
+                    else:
+                        profit = -stake
+                        logger.info(f"[RESOLVE] Sem mudanca de saldo ({broker_name}). Assumindo LOSS: -${stake:.2f}")
+                else:
+                    logger.warning(f"[RESOLVE] Nao conseguiu obter saldo ({broker_name}). Assumindo LOSS: -${stake:.2f}")
             except Exception as e:
-                logger.warning(f"[RESOLVE] Erro ao consultar resultado Deriv: {e}")
+                logger.warning(f"[RESOLVE] Erro ao consultar saldo ({broker_name}): {e}")
 
     except Exception as e:
         logger.error(f"[RESOLVE] Erro ao verificar resultado: {e}")
