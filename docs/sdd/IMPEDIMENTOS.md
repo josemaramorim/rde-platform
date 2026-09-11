@@ -91,3 +91,9 @@ Status possíveis: `Aberto` · `Em análise` · `Spec aprovada` · `Resolvido`.
 - **Onde:** `src/telegram_copier.py`, `src/routes/tradingview_bridge.py`, `src/executor.py` + `src/celery_worker.py`
 - **Problema:** lógica de negócio de execução de trade (sessão, status ao vivo, resolução de contrato) reimplementada de forma independente em três lugares.
 - **Status:** Aberto
+
+### IMP-015 — Quotex e Pocket Option provavelmente não funcionam em produção
+- **Onde:** `requirements.txt`, `Dockerfile`, `src/broker/quotex.py` (`from quotexpy import ...`), `src/broker/pocketoption.py` (`from pocketoptionapi_async import ...`)
+- **Problema:** as libs `quotexpy` e `pocketoptionapi-async` (usadas pelos adapters de Quotex e Pocket Option) não estão listadas em `requirements.txt` nem instaladas no `Dockerfile` — só o `iqoptionapi` está. Os imports são `try/except ImportError` com fallback silencioso pra `None` (`QuotexClient = None`, `AsyncPocketOptionClient = None`), então qualquer usuário VIP que tente usar uma dessas duas corretoras provavelmente falha ao conectar, sem essa ausência aparecer como erro óbvio de build/deploy.
+- **Bloqueia:** confiança de que Quotex e Pocket Option (parte do plano VIP, ver `src/plans_catalog.py`) realmente funcionam para quem paga por elas.
+- **Status:** Aberto — achado durante a exploração do IMP-002/vendorização de libs (2026-09-11), ainda não confirmado em produção nem priorizado.
