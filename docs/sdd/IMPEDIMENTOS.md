@@ -18,7 +18,7 @@ Status possíveis: `Aberto` · `Em análise` · `Spec aprovada` · `Resolvido`.
 - **Onde:** `src/broker/iqoption.py`, `src/broker/deriv.py`, `src/broker/_utils.py:run_async`, uso em `src/telegram_copier.py` (heartbeat 30s) e `src/routes/tradingview_bridge.py` (cache de broker)
 - **Problema:** IQ Option e Deriv não têm `async_get_balance` real; a chamada síncrona bloqueia o event loop. Em `tradingview_bridge.py` isso afeta todos os usuários que compartilham o processo, não só o dono da chamada.
 - **Bloqueia:** latência previsível sob carga com múltiplos usuários no webhook do TradingView.
-- **Status:** Aberto
+- **Status:** Resolvido — spec `docs/sdd/specs/004-async-balance-hotpath.md` (PR #12, 2026-09-11). IQ Option e Deriv ganharam `async_get_balance` real; `_get_cached_broker` virou async; escopo também cobriu `_create_broker()` (DB síncrono + `connect()` de rede), achado durante a exploração que não estava no texto original deste impedimento.
 
 ### IMP-003 — Fallback silencioso para `R_100` na Deriv
 - **Onde:** `src/broker/deriv_symbols.py`
