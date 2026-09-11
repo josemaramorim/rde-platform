@@ -183,8 +183,12 @@ def _create_broker(user_id: int, broker_name: str):
 
 
 # ── Symbol mapping (TradingView -> corretora) ───────────────────────
-def _map_symbol(symbol: str, broker_name: str) -> str:
-    """Mapeia simbolo do TradingView para formato da corretora."""
+def _map_symbol(symbol: str, broker_name: str) -> Optional[str]:
+    """Mapeia simbolo do TradingView para formato da corretora.
+
+    Para Deriv, retorna None se nao houver match confiavel — o caller deve
+    descartar o sinal em vez de executar num ativo diferente (IMP-003).
+    """
     sym = symbol.upper().strip()
     sym_clean = re.sub(r'[^A-Z0-9_\-]', '', sym)
 
@@ -472,6 +476,15 @@ async def _execute_tv_trade(
 
     stake = session_manager.stake
     mapped_symbol = _map_symbol(symbol, broker_name)
+
+    if not mapped_symbol:
+        # Deriv sem match confiavel para o simbolo — descarta em vez de
+        # executar num ativo diferente do sinalizado (IMP-003).
+        logger.warning(f"❌ [SINAL DESCARTADO] Ativo '{symbol}' não reconhecido para {broker_name}.")
+        return TradingViewWebhookResponse(
+            status="rejected",
+            message=f"Ativo '{symbol}' não reconhecido para {broker_name} — sinal descartado (sem execução em ativo diferente).",
+        )
 
     logger.info(
         f"TV TRADE: {direction} {symbol} -> {mapped_symbol} | "
