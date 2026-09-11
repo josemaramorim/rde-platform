@@ -1,6 +1,6 @@
 # 004 — Offload de I/O bloqueante no hot path do webhook TradingView
 
-- **Status:** Em revisão
+- **Status:** Implementado (PR #12, mergeado em 2026-09-11)
 - **Autor:** josemaramorim (via Claude)
 - **Data:** 2026-09-11
 - **Impedimento(s) relacionado(s):** IMP-002 (`docs/sdd/IMPEDIMENTOS.md`). Escopo apurado inclui mais do que `get_balance()` (ver Contexto).
@@ -54,13 +54,13 @@ Sem migração de schema. Quotex, Pocket Option e o restante do fluxo (parsing d
 
 ## Critérios de aceite
 
-- [ ] `IQOptionBroker` e `DerivBroker` expõem `async_get_balance()` (`hasattr(broker, "async_get_balance")` verdadeiro pros 4 brokers suportados).
-- [ ] Chamar `await broker.async_get_balance()` não bloqueia o event loop: uma coroutine concorrente simples (`asyncio.sleep(0)` num loop) continua sendo agendada normalmente enquanto a chamada de balance está em andamento.
-- [ ] `_get_cached_broker` é `async def`; o único call site em `_execute_tv_trade` usa `await`.
-- [ ] `_create_broker` só é invocado via `asyncio.to_thread` nos 3 pontos de `tradingview_bridge.py` — nenhuma chamada direta (síncrona) restante dentro de função `async def`.
-- [ ] `telegram_copier.py::_refresh_balance` não chama `self.broker.get_balance()` direto quando `async_get_balance` não existe — usa `asyncio.to_thread`.
-- [ ] App sobe sem erro; import de todos os módulos tocados limpo.
-- [ ] Comportamento observável para o usuário final inalterado (mesmo resultado de saldo/execução) — só deixa de bloquear o processo compartilhado.
+- [x] `IQOptionBroker` e `DerivBroker` expõem `async_get_balance()` (`hasattr(broker, "async_get_balance")` verdadeiro pros 4 brokers suportados).
+- [x] Chamar `await broker.async_get_balance()` não bloqueia o event loop: uma coroutine concorrente simples (`asyncio.sleep(0)` num loop) continua sendo agendada normalmente enquanto a chamada de balance está em andamento.
+- [x] `_get_cached_broker` é `async def`; o único call site em `_execute_tv_trade` usa `await`.
+- [x] `_create_broker` só é invocado via `asyncio.to_thread` nos 3 pontos de `tradingview_bridge.py` — nenhuma chamada direta (síncrona) restante dentro de função `async def`.
+- [x] `telegram_copier.py::_refresh_balance` não chama `self.broker.get_balance()` direto quando `async_get_balance` não existe — usa `asyncio.to_thread`.
+- [x] App sobe sem erro; import de todos os módulos tocados limpo.
+- [x] Comportamento observável para o usuário final inalterado (mesmo resultado de saldo/execução) — só deixa de bloquear o processo compartilhado.
 
 ## Impacto em performance
 
@@ -72,5 +72,5 @@ Sem migração de schema. Quotex, Pocket Option e o restante do fluxo (parsing d
 
 ## Aprovação
 
-- [ ] Revisado contra `docs/sdd/CONSTITUICAO.md` (§1 performance-first — objetivo direto desta spec; §3 zona de alto risco — autorização explícita obrigatória; §7 autorização)
-- [ ] Aprovado explicitamente pelo usuário antes do início da implementação
+- [x] Revisado contra `docs/sdd/CONSTITUICAO.md` (§1 performance-first — objetivo direto desta spec; §3 zona de alto risco — autorização explícita obrigatória; §7 autorização)
+- [x] Aprovado explicitamente pelo usuário antes do início da implementação (2026-09-11)
