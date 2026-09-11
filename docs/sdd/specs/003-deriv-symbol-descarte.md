@@ -1,6 +1,6 @@
 # 003 — Deriv: descartar sinal em vez de adivinhar ativo não mapeado
 
-- **Status:** Em revisão
+- **Status:** Implementado (PR #9, mergeado em 2026-09-11)
 - **Autor:** josemaramorim (via Claude)
 - **Data:** 2026-09-11
 - **Impedimento(s) relacionado(s):** IMP-003 (`docs/sdd/IMPEDIMENTOS.md`).
@@ -47,14 +47,14 @@ Sem migração de schema. IQ Option, Quotex e Pocket Option não passam por `res
 
 ## Critérios de aceite
 
-- [ ] `resolve_deriv_symbol("XPTOZZZ")` (símbolo inventado) retorna `None`.
-- [ ] `resolve_deriv_symbol("EURUSD")` e `resolve_deriv_symbol("EURUSD-OTC")` continuam retornando `"R_100"` (mapeamento canônico preservado, não é fallback).
-- [ ] `resolve_deriv_symbol("R_75")` (já um símbolo Deriv) continua retornando `"R_75"` (passthrough preservado).
-- [ ] `resolve_deriv_symbol("EURUSDX")` — hoje cai no fallback por prefixo e retorna `"R_100"` — passa a retornar `None`.
-- [ ] `telegram_copier.py`: sinal com símbolo não mapeado pra Deriv não chega a chamar `send_order`/`async_send_order`; log de descarte aparece.
-- [ ] `tradingview_bridge.py`: webhook com símbolo não mapeado pra Deriv retorna `status="rejected"` com mensagem clara, sem chamar `_get_cached_broker` nem enviar ordem.
-- [ ] `grep -n '"R_100"' src/broker/deriv_symbols.py` só aparece no mapeamento canônico de `EURUSD`, nunca mais como retorno de fallback.
-- [ ] Fluxo de IQ Option, Quotex e Pocket Option inalterado (nenhum deles chama `resolve_deriv_symbol`).
+- [x] `resolve_deriv_symbol("XPTOZZZ")` (símbolo inventado) retorna `None`.
+- [x] `resolve_deriv_symbol("EURUSD")` e `resolve_deriv_symbol("EURUSD-OTC")` continuam retornando `"R_100"` (mapeamento canônico preservado, não é fallback).
+- [x] `resolve_deriv_symbol("R_75")` (já um símbolo Deriv) continua retornando `"R_75"` (passthrough preservado).
+- [x] `resolve_deriv_symbol("EURUSDX")` — hoje cai no fallback por prefixo e retorna `"R_100"` — passa a retornar `None`.
+- [x] `telegram_copier.py`: sinal com símbolo não mapeado pra Deriv não chega a chamar `send_order`/`async_send_order`; log de descarte aparece.
+- [x] `tradingview_bridge.py`: webhook com símbolo não mapeado pra Deriv retorna `status="rejected"` com mensagem clara, sem chamar `_get_cached_broker` nem enviar ordem.
+- [x] `grep -n '"R_100"' src/broker/deriv_symbols.py` só aparece no mapeamento canônico de `EURUSD`, nunca mais como retorno de fallback.
+- [x] Fluxo de IQ Option, Quotex e Pocket Option inalterado (nenhum deles chama `resolve_deriv_symbol`).
 
 ## Impacto em performance
 
@@ -66,5 +66,5 @@ Sem migração de schema. IQ Option, Quotex e Pocket Option não passam por `res
 
 ## Aprovação
 
-- [ ] Revisado contra `docs/sdd/CONSTITUICAO.md` (§1 sem impacto de performance; §3 zona de alto risco — autorização explícita obrigatória; §7 autorização)
-- [ ] Aprovado explicitamente pelo usuário antes do início da implementação
+- [x] Revisado contra `docs/sdd/CONSTITUICAO.md` (§1 sem impacto de performance; §3 zona de alto risco — autorização explícita obrigatória; §7 autorização)
+- [x] Aprovado explicitamente pelo usuário antes do início da implementação (2026-09-11)

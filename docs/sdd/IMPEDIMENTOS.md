@@ -24,7 +24,7 @@ Status possíveis: `Aberto` · `Em análise` · `Spec aprovada` · `Resolvido`.
 - **Onde:** `src/broker/deriv_symbols.py`
 - **Problema:** um símbolo de sinal não reconhecido é silenciosamente convertido para o índice sintético `R_100`, um ativo sem relação com o sinal original — ordem real pode ser executada no ativo errado.
 - **Bloqueia:** confiança de que "o que foi sinalizado é o que foi operado" para sinais Deriv.
-- **Status:** Aberto
+- **Status:** Resolvido — spec `docs/sdd/specs/003-deriv-symbol-descarte.md` (PR #9, 2026-09-11). `resolve_deriv_symbol` retorna `None` sem match confiável (removidos fallback por prefixo e default `R_100`); `telegram_copier.py` e `tradingview_bridge.py` descartam o sinal em vez de executar em ativo diferente, mesmo princípio já adotado pela IQ Option.
 
 ### IMP-004 — Regras de plano→corretora duplicadas e divergentes
 - **Onde:** `src/seed_plans.py`, `src/routes/admin_routes.py` (`_PLAN_BROKER_RULES`), `src/main.py` (seed de startup), `src/corrigir_admin.py`
