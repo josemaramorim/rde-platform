@@ -39,7 +39,10 @@ aiohttp>=3.9.0
 websockets>=12.0
 
 # --- Corretoras (Broker API) ---
-iqoptionapi @ git+https://github.com/Lu-Yi-Hsun/iqoptionapi.git
+# iqoptionapi vendorizada em vendor/iqoptionapi (ver vendor/iqoptionapi/VENDORED.md
+# e docs/sdd/specs/005-vendorizar-iqoptionapi.md) -- instalacao local editavel em vez
+# de git+https sem pin de commit.
+-e ./vendor/iqoptionapi
 
 # --- Telegram (Copier / Autenticação) ---
 telethon>=1.36.0
