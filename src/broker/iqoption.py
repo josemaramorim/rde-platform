@@ -445,6 +445,13 @@ class IQOptionBroker(BaseBroker):
             return 0.0
         return self.api.get_balance()
 
+    async def async_get_balance(self) -> float:
+        """Versao async: roda get_balance() num executor para nao bloquear o event loop
+        compartilhado (IMP-002) — a lib iqoptionapi por baixo e sincrona, sem async nativo."""
+        import asyncio
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self.get_balance)
+
     def get_contract_status(self, order_id: str) -> str:
         """Verifica resultado da ordem no IQ Option de forma precisa."""
         if not order_id or not self._is_alive():

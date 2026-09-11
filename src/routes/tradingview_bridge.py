@@ -42,38 +42,53 @@ def _cache_key(user_id: int, broker_setting_id) -> str:
     return f"{user_id}_{broker_setting_id}"
 
 
-def _get_cached_broker(user_id: int, broker_setting_id, broker_name: str):
-    """Retorna broker em cache ou cria novo. Verifica saude do broker em cache."""
+async def _get_cached_broker(user_id: int, broker_setting_id, broker_name: str):
+    """Retorna broker em cache ou cria novo. Verifica saude do broker em cache.
+
+    Async (IMP-002): o health-check (get_balance) e a criacao/conexao do broker
+    (_create_broker — DB sincrono + connect() de rede) fazem I/O bloqueante.
+    Rodar isso direto no event loop compartilhado do webhook do TradingView
+    trava TODOS os usuarios enquanto a chamada esta em andamento. Por isso o
+    lock (sincrono, so protege o dict em memoria) nunca fica segurado durante
+    um await, e as chamadas bloqueantes passam por async_get_balance()/
+    asyncio.to_thread().
+    """
     key = _cache_key(user_id, broker_setting_id)
     with _cache_lock:
         entry = _broker_cache.get(key)
-        if entry:
-            broker = entry["broker"]
-            age = time.time() - entry["created_at"]
-            if age < 600:
-                try:
-                    bal = broker.get_balance()
-                    if bal is not None and bal >= 0:
-                        logger.info(f"Broker reutilizado do cache (idade={age:.0f}s, saldo=${bal:.2f})")
-                        return broker
-                    else:
-                        logger.warning(f"Broker em cache com saldo invalido ({bal}). Reconectando...")
-                except Exception as e:
-                    logger.warning(f"Broker em cache falhou no health check ({e}). Reconectando...")
-                try:
-                    broker.disconnect()
-                except Exception:
-                    pass
-                del _broker_cache[key]
-            else:
-                logger.info(f"Broker em cache expirado ({age:.0f}s). Reconectando...")
-                try:
-                    broker.disconnect()
-                except Exception:
-                    pass
-                del _broker_cache[key]
 
-    broker = _create_broker(user_id, broker_name)
+    if entry:
+        broker = entry["broker"]
+        age = time.time() - entry["created_at"]
+        if age < 600:
+            try:
+                if hasattr(broker, "async_get_balance"):
+                    bal = await broker.async_get_balance()
+                else:
+                    bal = await asyncio.to_thread(broker.get_balance)
+                if bal is not None and bal >= 0:
+                    logger.info(f"Broker reutilizado do cache (idade={age:.0f}s, saldo=${bal:.2f})")
+                    return broker
+                else:
+                    logger.warning(f"Broker em cache com saldo invalido ({bal}). Reconectando...")
+            except Exception as e:
+                logger.warning(f"Broker em cache falhou no health check ({e}). Reconectando...")
+            try:
+                broker.disconnect()
+            except Exception:
+                pass
+            with _cache_lock:
+                _broker_cache.pop(key, None)
+        else:
+            logger.info(f"Broker em cache expirado ({age:.0f}s). Reconectando...")
+            try:
+                broker.disconnect()
+            except Exception:
+                pass
+            with _cache_lock:
+                _broker_cache.pop(key, None)
+
+    broker = await asyncio.to_thread(_create_broker, user_id, broker_name)
     with _cache_lock:
         _broker_cache[key] = {
             "broker": broker,
@@ -492,7 +507,7 @@ async def _execute_tv_trade(
     )
 
     try:
-        broker = _get_cached_broker(user.id, broker_setting.id, broker_name)
+        broker = await _get_cached_broker(user.id, broker_setting.id, broker_name)
     except Exception as e:
         logger.error(f"Falha ao conectar broker: {e}")
         with _cache_lock:
@@ -555,7 +570,7 @@ async def _execute_tv_trade(
                         pass
                     await asyncio.sleep(3)
                     try:
-                        broker = _create_broker(user.id, broker_name)
+                        broker = await asyncio.to_thread(_create_broker, user.id, broker_name)
                         with _cache_lock:
                             key = _cache_key(user.id, broker_setting.id)
                             _broker_cache[key] = {"broker": broker, "created_at": time.time()}
@@ -576,7 +591,7 @@ async def _execute_tv_trade(
                     pass
                 await asyncio.sleep(3)
                 try:
-                    broker = _create_broker(user.id, broker_name)
+                    broker = await asyncio.to_thread(_create_broker, user.id, broker_name)
                     with _cache_lock:
                         key = _cache_key(user.id, broker_setting.id)
                         _broker_cache[key] = {"broker": broker, "created_at": time.time()}

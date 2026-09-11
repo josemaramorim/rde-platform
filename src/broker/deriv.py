@@ -226,6 +226,12 @@ class DerivBroker(BaseBroker):
     def get_balance(self) -> float:
         return run_async(self._get_balance_async())
 
+    async def async_get_balance(self) -> float:
+        """Expoe _get_balance_async publicamente para chamadores async (IMP-002) —
+        evita passar por run_async(), que bloqueia a thread chamadora esperando
+        uma outra thread terminar."""
+        return await self._get_balance_async()
+
     async def _get_balance_async(self) -> float:
         res = await self._ws_request({"balance": 1})
         if "error" in res:

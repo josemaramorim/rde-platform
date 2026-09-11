@@ -935,7 +935,9 @@ class TelegramCopier:
             if hasattr(self.broker, "async_get_balance"):
                 bal = await self.broker.async_get_balance()
             else:
-                bal = self.broker.get_balance()
+                # Offload — get_balance() bloqueante nao trava o event loop deste
+                # processo enquanto espera a rede (IMP-002).
+                bal = await asyncio.to_thread(self.broker.get_balance)
             if bal and bal > 0:
                 self.current_balance = bal
                 self.session_manager.update_balance(bal)
