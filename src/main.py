@@ -448,9 +448,10 @@ async def telegram_status(user: User = Depends(current_active_user)):
     import os, psutil
     connected = await TelegramBot.test_connection()
     copier_running = False
-    if os.path.exists("copier.pid"):
+    # PID namespaced por usuário (IMP-001) — evita reportar o copier de outro usuário como o próprio.
+    if os.path.exists(f"copier_{user.id}.pid"):
         try:
-            with open("copier.pid") as pf:
+            with open(f"copier_{user.id}.pid") as pf:
                 pid = int(pf.read().strip())
             copier_running = psutil.pid_exists(pid)
         except Exception:
@@ -480,89 +481,24 @@ async def telegram_status(user: User = Depends(current_active_user)):
     }
 
 
-@app.post("/telegram/start-copier", tags=["Telegram"])
-async def start_copier(
-    user: User = Depends(current_active_user),
-    db: AsyncSession = Depends(get_async_session),
-):
-    import subprocess, sys, os, psutil
-
-    # Validação estrita: exige canal configurado nas variáveis do servidor
-    target_channel = (settings.TELEGRAM_GROUP_NAME or "").strip().strip('"').strip("'") or (settings.TELEGRAM_CHAT_ID or "").strip()
-    if not target_channel:
-        return {
-            "status": "error",
-            "message": "Canal de sinais não configurado no servidor. Defina TELEGRAM_GROUP_NAME ou TELEGRAM_CHAT_ID no arquivo .env ou nas variáveis do Docker.",
-        }
-
-    if os.path.exists("copier.pid"):
-        try:
-            with open("copier.pid") as f:
-                pid = int(f.read().strip())
-            if psutil.pid_exists(pid):
-                return {"status": "already_running", "pid": pid}
-            else:
-                os.remove("copier.pid")
-        except Exception:
-            try:
-                os.remove("copier.pid")
-            except Exception:
-                pass
-
-
-    # Resolve broker do usuario
-    result = await db.execute(
-        select(User).options(selectinload(User.broker_settings)).where(User.id == user.id)
-    )
-    u = result.scalar_one_or_none()
-    broker_name = ""
-    if u and u.broker_settings:
-        active_setting = next((s for s in u.broker_settings if s.is_active), None)
-        if active_setting:
-            broker_name = active_setting.broker_name.lower()
-
-    cmd = [sys.executable, "-m", "src.telegram_copier", "--user-id", str(user.id)]
-    if broker_name:
-        cmd += ["--broker", broker_name]
-
-    proc = subprocess.Popen(
-        cmd,
-        stdout=open("copier.log", "w", encoding="utf-8"),
-        stderr=subprocess.STDOUT,
-        cwd=os.getcwd()
-    )
-    with open("copier.pid", "w") as f:
-        f.write(str(proc.pid))
-    return {"status": "started", "pid": proc.pid}
-
-
-@app.post("/telegram/stop-copier", tags=["Telegram"])
-async def stop_copier(user: User = Depends(current_active_user)):
-    import os, sys, subprocess
-    if not os.path.exists("copier.pid"):
-        return {"status": "not_running"}
-    with open("copier.pid") as f:
-        pid = int(f.read().strip())
-    try:
-        if sys.platform == "win32":
-            subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True, timeout=5)
-        else:
-            import signal
-            os.kill(pid, signal.SIGTERM)
-        os.remove("copier.pid")
-        return {"status": "stopped"}
-    except Exception as e:
-        os.remove("copier.pid")
-        return {"status": "error", "detail": str(e)}
+# /telegram/start-copier e /telegram/stop-copier foram removidos (IMP-001/IMP-011):
+# não eram chamados por nenhuma página do frontend (que usa POST /copier/toggle),
+# duplicavam a lógica de /copier/toggle e operavam sobre o mesmo copier.pid global
+# — mantê-los vivos continuaria expondo um jeito de matar o copier de outro usuário
+# via chamada direta à API, mesmo depois do namespace por usuário abaixo.
 
 
 # ====================== LOGS DO COPIER (TERMINAL AO VIVO) ======================
 
-def _read_copier_log_lines(lines: int = 200, filter_query: Optional[str] = None):
+def _read_copier_log_lines(user_id, lines: int = 200, filter_query: Optional[str] = None):
+    """Lê o log do copier de UM usuário (copier_{user_id}.log — IMP-001).
+
+    Antes lia um único copier.log global e compartilhado por todos os usuários.
+    """
     import os
-    log_file = "copier.log"
+    log_file = f"copier_{user_id}.log"
     if not os.path.exists(log_file):
-        return {"status": "ok", "lines": ["Nenhum log gerado ainda (arquivo copier.log vazio)."], "total_lines": 0, "size_kb": 0.0}
+        return {"status": "ok", "lines": [f"Nenhum log gerado ainda (arquivo {log_file} vazio)."], "total_lines": 0, "size_kb": 0.0}
 
     try:
         size_kb = round(os.path.getsize(log_file) / 1024, 2)
@@ -590,25 +526,33 @@ def _read_copier_log_lines(lines: int = 200, filter_query: Optional[str] = None)
 
 @app.get("/admin/logs/copier", tags=["Admin"])
 async def get_admin_copier_logs(
+    user_id: Optional[str] = None,
     lines: int = 200,
     filter: Optional[str] = None,
     user: User = Depends(current_active_user),
 ):
     if not getattr(user, "is_admin", False):
         raise HTTPException(status_code=403, detail="Acesso restrito ao Administrador.")
-    return _read_copier_log_lines(lines=lines, filter_query=filter)
+    if not user_id:
+        # Não existe mais um único log global desde o namespace por usuário (IMP-001).
+        raise HTTPException(status_code=400, detail="Informe ?user_id=<id> — o log do copier agora é por usuário.")
+    return _read_copier_log_lines(user_id, lines=lines, filter_query=filter)
 
 
 @app.delete("/admin/logs/copier", tags=["Admin"])
 async def clear_admin_copier_logs(
+    user_id: Optional[str] = None,
     user: User = Depends(current_active_user),
 ):
     if not getattr(user, "is_admin", False):
         raise HTTPException(status_code=403, detail="Acesso restrito ao Administrador.")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Informe ?user_id=<id> — o log do copier agora é por usuário.")
     import os
-    if os.path.exists("copier.log"):
+    log_file = f"copier_{user_id}.log"
+    if os.path.exists(log_file):
         try:
-            with open("copier.log", "w", encoding="utf-8") as f:
+            with open(log_file, "w", encoding="utf-8") as f:
                 f.write(f"--- Log limpo pelo Administrador em {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')} ---\n")
             return {"status": "ok", "message": "Arquivo de log limpo com sucesso."}
         except Exception as e:
@@ -622,7 +566,8 @@ async def get_user_copier_logs(
     filter: Optional[str] = None,
     user: User = Depends(current_active_user),
 ):
-    return _read_copier_log_lines(lines=lines, filter_query=filter)
+    # Cada usuário só lê o próprio log — antes lia copier.log global (vazamento entre usuários, IMP-001).
+    return _read_copier_log_lines(user.id, lines=lines, filter_query=filter)
 
 
 @app.post("/telegram/test", tags=["Telegram"])
@@ -731,9 +676,10 @@ async def get_dashboard_live(
 
     copier_running = False
     copier_source = "telegram"
-    if os.path.exists("copier.pid"):
+    pid_file = f"copier_{user.id}.pid"  # namespaced por usuário (IMP-001)
+    if os.path.exists(pid_file):
         try:
-            with open("copier.pid") as pf:
+            with open(pid_file) as pf:
                 content = pf.read().strip()
             if content.startswith("tv:"):
                 copier_running = True
@@ -743,7 +689,7 @@ async def get_dashboard_live(
                 import psutil
                 copier_running = psutil.pid_exists(pid)
                 if not copier_running:
-                    os.remove("copier.pid")
+                    os.remove(pid_file)
         except Exception:
             copier_running = False
 
@@ -1039,28 +985,31 @@ async def startup():
             _log.warning(f"Aviso no seed inicial de dados: {seed_err}")
 
     # ── Limpeza de arquivos temporários ────────────────────────────
-    pid_file = "copier.pid"
-    if _os.path.exists(pid_file):
-        try:
-            with open(pid_file) as f:
-                content = f.read().strip()
-            if content.startswith("tv:"):
-                pass
-            else:
-                try:
-                    pid = int(content)
-                    import psutil
-                    if not psutil.pid_exists(pid):
-                        _os.remove(pid_file)
-                        _log.info(f"Stale copier.pid (PID {pid}) cleaned up on startup.")
-                except Exception:
-                    _os.remove(pid_file)
-                    _log.info("Stale copier.pid cleaned up on startup.")
-        except Exception:
+    # PID namespaced por usuário (copier_{user_id}.pid — IMP-001): varre todos
+    # os arquivos existentes, cada um limpo independentemente dos demais.
+    import glob as _glob
+    for pid_file in _glob.glob("copier_*.pid"):
+        if _os.path.exists(pid_file):
             try:
-                _os.remove(pid_file)
+                with open(pid_file) as f:
+                    content = f.read().strip()
+                if content.startswith("tv:"):
+                    pass
+                else:
+                    try:
+                        pid = int(content)
+                        import psutil
+                        if not psutil.pid_exists(pid):
+                            _os.remove(pid_file)
+                            _log.info(f"Stale {pid_file} (PID {pid}) cleaned up on startup.")
+                    except Exception:
+                        _os.remove(pid_file)
+                        _log.info(f"Stale {pid_file} cleaned up on startup.")
             except Exception:
-                pass
+                try:
+                    _os.remove(pid_file)
+                except Exception:
+                    pass
 
     # Remove session files corrompidos/antigos
     for fname in _os.listdir("."):
@@ -1219,7 +1168,11 @@ async def toggle_copier(
             detail="Sua conta está aguardando liberação do administrador. Entre em contato para ativar sua licença."
         )
 
-    pid_file = "copier.pid"
+    # PID namespaced por usuário (IMP-001): antes "copier.pid" era global e
+    # compartilhado — ligar o copier de um usuário podia matar o de outro que
+    # já estava rodando, pois o código assumia que qualquer PID no arquivo era
+    # de uma sessão anterior DESTE usuário.
+    pid_file = f"copier_{user.id}.pid"
     status_file = f"live_status_{user.id}.json"
 
     # Clean stale PID (skip MT4 markers)
@@ -1404,7 +1357,7 @@ async def toggle_copier(
         if broker_name:
             cmd += ["--broker", broker_name]
 
-        log_fh = open("copier.log", "a", encoding="utf-8")
+        log_fh = open(f"copier_{user.id}.log", "a", encoding="utf-8")  # namespaced por usuário (IMP-001)
         try:
             proc = subprocess.Popen(
                 cmd,

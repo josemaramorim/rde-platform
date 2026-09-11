@@ -69,11 +69,11 @@ def _update_user_live_status(user_id, message: str, is_error: bool = False):
         pass
 
     try:
-        with open("copier.log", "a", encoding="utf-8") as lf:
+        with open(f"copier_{user_id}.log", "a", encoding="utf-8") as lf:
             prefix = "ERROR" if is_error else "INFO"
             lf.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]} - {prefix} - [TELEGRAM AUTH] {message}\n")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Falha ao gravar copier_{user_id}.log: {e}")
 
 
 _user_locks: dict[str, asyncio.Lock] = {}
