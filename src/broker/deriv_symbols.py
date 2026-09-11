@@ -4,6 +4,7 @@ Ativos de volatilidade sintetica, crash/step, range break e forex.
 """
 import re
 import logging
+from typing import Optional
 
 logger = logging.getLogger("rde")
 
@@ -52,11 +53,16 @@ DERIV_SYMBOL_MAP = {
 }
 
 
-def resolve_deriv_symbol(raw_symbol: str) -> str:
+def resolve_deriv_symbol(raw_symbol: str) -> Optional[str]:
     """
     Resolve um simbolo cru (do sinal Telegram/MT4) para o formato Deriv.
-    Tenta match exato, depois strip OTC e tenta de novo.
-    Retorna o simbolo Deriv ou 'R_100' como default.
+    Tenta match exato, depois strip OTC, depois passthrough se ja for um
+    simbolo Deriv valido.
+
+    Alta performance / sem substituicao automatica: se nao ha match confiavel,
+    retorna None. Quem chama deve descartar o sinal (nao executar em ativo
+    diferente do que foi sinalizado) — mesmo principio ja adotado pela IQ
+    Option (ver src/broker/iqoption.py).
     """
     sym = raw_symbol.upper().strip()
     sym = re.sub(r'[^A-Z0-9_\-]', '', sym)
@@ -81,20 +87,8 @@ def resolve_deriv_symbol(raw_symbol: str) -> str:
     if sym in deriv_direct:
         return sym
 
-    # Fallback inteligente: tenta mapear por prefixo
-    for prefix, deriv_sym in [
-        ("EURUSD", "R_100"), ("GBPUSD", "R_75"), ("USDJPY", "R_50"),
-        ("AUDUSD", "R_25"), ("USDCAD", "R_10"), ("USDCHF", "R_75"),
-        ("NZDUSD", "R_25"), ("EURGBP", "R_50"), ("EURJPY", "R_25"),
-        ("GBPJPY", "R_10"), ("XAUUSD", "1HZ250V"), ("XAGUSD", "1HZ250V"),
-        ("BTCUSD", "cryBTCUSD"), ("ETHUSD", "cryETHUSD"),
-    ]:
-        if sym.startswith(prefix):
-            logger.warning(f"[DERIV] Ativo '{raw_symbol}' mapeado por prefixo -> {deriv_sym}")
-            return deriv_sym
-
-    logger.warning(f"[DERIV] Ativo '{raw_symbol}' sem mapeamento. Usando R_100 como fallback.")
-    return "R_100"
+    logger.warning(f"❌ [DERIV] Ativo '{raw_symbol}' sem mapeamento reconhecido. Sinal descartado.")
+    return None
 
 
 def get_deriv_symbol_map() -> dict:

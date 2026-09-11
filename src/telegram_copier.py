@@ -913,6 +913,10 @@ class TelegramCopier:
         elif self.broker_name in ("deriv", "deriv_demo", "deriv_real"):
             from src.broker.deriv_symbols import resolve_deriv_symbol
             symbol = resolve_deriv_symbol(symbol)
+            if not symbol:
+                # Sem match confiavel na Deriv — descarta o sinal em vez de
+                # executar num ativo diferente do sinalizado (IMP-003).
+                return None
 
         return {
             "direction": direction,
