@@ -1,6 +1,6 @@
 # 005 — Vendorizar `iqoptionapi` (fixar dependência dentro do repo)
 
-- **Status:** Em revisão
+- **Status:** Implementado (PR #15, mergeado em 2026-09-11)
 - **Autor:** josemaramorim (via Claude)
 - **Data:** 2026-09-11
 - **Impedimento(s) relacionado(s):** Nenhum aberto diretamente — proposta motivada por pergunta do usuário sobre organizar libs de corretora em pastas próprias. Registra e deixa fora de escopo o IMP-015 (Quotex/Pocket Option), achado durante a exploração.
@@ -61,12 +61,12 @@ Ajusta a ordem de `COPY` pra incluir `vendor/` **antes** do `pip install -r requ
 
 ## Critérios de aceite
 
-- [ ] `vendor/iqoptionapi/` existe com o pacote completo e `VENDORED.md` documentando origem/commit.
-- [ ] `requirements.txt` não referencia mais `git+https://github.com/...` para o iqoptionapi.
-- [ ] `pip install -r requirements.txt` num ambiente limpo instala `iqoptionapi` a partir da pasta local (checável por `pip show iqoptionapi` apontando pra dentro do repo, não pra um cache de git).
-- [ ] `import iqoptionapi` e `from iqoptionapi.stable_api import IQ_Option` continuam funcionando sem nenhuma edição em `src/broker/iqoption.py`.
-- [ ] `docker build` continua funcionando com a nova ordem de `COPY`.
-- [ ] Testado manualmente: instanciar `IQOptionBroker`, conectar e chamar `get_balance()`/`async_get_balance()` com uma conta de teste — mesmo resultado de antes da mudança.
+- [x] `vendor/iqoptionapi/` existe com o pacote completo e `VENDORED.md` documentando origem/commit.
+- [x] `requirements.txt` não referencia mais `git+https://github.com/...` para o iqoptionapi.
+- [x] `pip install -r requirements.txt` num ambiente limpo instala `iqoptionapi` a partir da pasta local (checável por `pip show iqoptionapi` apontando pra dentro do repo, não pra um cache de git).
+- [x] `import iqoptionapi` e `from iqoptionapi.stable_api import IQ_Option` continuam funcionando sem nenhuma edição em `src/broker/iqoption.py`.
+- [x] `docker build` continua funcionando com a nova ordem de `COPY` — validado com build real (Docker Desktop), incluindo `docker run` confirmando `import iqoptionapi` resolvendo para `/app/vendor/iqoptionapi/` dentro do container.
+- [x] Testado manualmente: instanciar `IQOptionBroker`, conectar e chamar `get_balance()`/`async_get_balance()` com uma conta de teste — mesmo resultado de antes da mudança.
 
 ## Impacto em performance
 
@@ -78,5 +78,5 @@ Neutro em runtime — mesma lib, mesmo código, só muda de onde é instalada (n
 
 ## Aprovação
 
-- [ ] Revisado contra `docs/sdd/CONSTITUICAO.md` (§3 zona de alto risco — autorização explícita obrigatória; §6 artefatos — vendorizar uma lib pequena não é o mesmo problema do IMP-012, mas segue o mesmo princípio de justificar o que é versionado; §7 autorização)
-- [ ] Aprovado explicitamente pelo usuário antes do início da implementação
+- [x] Revisado contra `docs/sdd/CONSTITUICAO.md` (§3 zona de alto risco — autorização explícita obrigatória; §6 artefatos — vendorizar uma lib pequena não é o mesmo problema do IMP-012, mas segue o mesmo princípio de justificar o que é versionado; §7 autorização)
+- [x] Aprovado explicitamente pelo usuário antes do início da implementação (2026-09-11)
