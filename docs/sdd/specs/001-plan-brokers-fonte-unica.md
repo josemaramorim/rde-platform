@@ -1,6 +1,6 @@
 # 001 — Fonte única para o catálogo de planos (plano → corretoras)
 
-- **Status:** Em revisão
+- **Status:** Implementado (PR #3, mergeado em 2026-09-11)
 - **Autor:** josemaramorim (via Claude)
 - **Data:** 2026-09-10
 - **Impedimento(s) relacionado(s):** IMP-004 (`docs/sdd/IMPEDIMENTOS.md`). Encosta em IMP-011 (endpoint band-aid) e IMP-010 (`main.py` god file).
@@ -72,12 +72,12 @@ Sem migração de schema. Sem mudança em nenhum arquivo da zona de alto risco.
 
 ## Critérios de aceite
 
-- [ ] Existe exatamente **uma** definição da regra plano→corretoras no código (`src/plans_catalog.py`); `grep -rn '"iqoption"' src/` não encontra mais nenhuma lista de brokers por plano fora desse módulo.
-- [ ] `python -m src.seed_plans`, o seed de startup do `src/main.py` e `python -m src.corrigir_admin` produzem, para os mesmos planos, **exatamente os mesmos** `allowed_brokers` (Free=`["iqoption"]`, Pro=`["iqoption","deriv"]`, VIP=`["iqoption","deriv","quotex","pocketoption"]`).
-- [ ] `POST /admin/v2/fix-plan-brokers` ajusta os planos do banco para os valores de `src/plans_catalog.py` e é idempotente (rodar 2x seguidas: o 2º resultado não reporta nenhuma mudança).
-- [ ] `Plan.get_allowed_brokers()` tem uma única definição em `src/models/user.py`; comportamento inalterado (retorna `[]` para `allowed_brokers` nulo/inválido).
-- [ ] `VALID_BROKERS` usado na validação de `admin_routes.py` vem do módulo canônico (não há mais o set literal em `admin_routes.py:240`).
-- [ ] App sobe sem erro e `GET` de plano do usuário (`src/routes/user.py`) segue retornando `allowed_brokers` corretos para um usuário de cada plano.
+- [x] Existe exatamente **uma** definição da regra plano→corretoras no código (`src/plans_catalog.py`); `grep -rn '"iqoption"' src/` não encontra mais nenhuma lista de brokers por plano fora desse módulo.
+- [x] `python -m src.seed_plans`, o seed de startup do `src/main.py` e `python -m src.corrigir_admin` produzem, para os mesmos planos, **exatamente os mesmos** `allowed_brokers` (Free=`["iqoption"]`, Pro=`["iqoption","deriv"]`, VIP=`["iqoption","deriv","quotex","pocketoption"]`).
+- [x] `POST /admin/v2/fix-plan-brokers` ajusta os planos do banco para os valores de `src/plans_catalog.py` e é idempotente (rodar 2x seguidas: o 2º resultado não reporta nenhuma mudança).
+- [x] `Plan.get_allowed_brokers()` tem uma única definição em `src/models/user.py`; comportamento inalterado (retorna `[]` para `allowed_brokers` nulo/inválido).
+- [x] `VALID_BROKERS` usado na validação de `admin_routes.py` vem do módulo canônico (não há mais o set literal em `admin_routes.py:240`).
+- [x] App sobe sem erro e `GET` de plano do usuário (`src/routes/user.py`) segue retornando `allowed_brokers` corretos para um usuário de cada plano.
 
 ## Impacto em performance
 
@@ -91,5 +91,5 @@ Sem migração de schema. Sem mudança em nenhum arquivo da zona de alto risco.
 
 ## Aprovação
 
-- [ ] Revisado contra `docs/sdd/CONSTITUICAO.md` (§2 fonte única — objetivo direto; §4 dedup de método; §1 sem impacto de performance; §7 autorização)
-- [ ] Aprovado explicitamente pelo usuário antes do início da implementação
+- [x] Revisado contra `docs/sdd/CONSTITUICAO.md` (§2 fonte única — objetivo direto; §4 dedup de método; §1 sem impacto de performance; §7 autorização)
+- [x] Aprovado explicitamente pelo usuário antes do início da implementação (2026-09-10)
