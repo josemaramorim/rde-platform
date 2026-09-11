@@ -36,7 +36,7 @@ Status possíveis: `Aberto` · `Em análise` · `Spec aprovada` · `Resolvido`.
 - **Onde:** `src/telegram_copier.py`, `src/executor.py` (uso de `stake * 0.85` em vez do `payout` real devolvido pela corretora)
 - **Problema:** o valor de lucro exibido/registrado diverge do que a corretora realmente pagou, mesmo quando o payout real já está disponível na resposta da ordem (IQ Option).
 - **Bloqueia:** confiabilidade dos números de P&L mostrados ao usuário e usados nas regras de ciclo/risco.
-- **Status:** Aberto
+- **Status:** Resolvido — spec `docs/sdd/specs/006-resultado-e-payout-reais.md` (PR #18, 2026-09-11). Escopo real era maior: `tradingview_bridge.py::_do_wait_and_resolve` tinha um bug de tipo que fazia todo trade Deriv via TradingView ser registrado como LOSS, ganhando ou perdendo de verdade (não estava documentado aqui originalmente). Payout agora é calculado pela variação real de saldo em todos os 3 fluxos, sem percentual fixo.
 
 ### IMP-006 — Ausência de testes automatizados e de gate de CI
 - **Onde:** repositório inteiro; `.github/workflows/docker-publish.yml` só builda e publica a imagem
