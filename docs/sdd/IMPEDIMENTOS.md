@@ -30,7 +30,7 @@ Status possíveis: `Aberto` · `Em análise` · `Spec aprovada` · `Resolvido`.
 - **Onde:** `src/seed_plans.py`, `src/routes/admin_routes.py` (`_PLAN_BROKER_RULES`), `src/main.py` (seed de startup), `src/corrigir_admin.py`
 - **Problema:** a mesma regra de negócio (quais corretoras cada plano libera) está hardcoded em 4 lugares, e `corrigir_admin.py` diverge dos outros três. Causa raiz do endpoint manual `/admin/v2/fix-plan-brokers`.
 - **Bloqueia:** confiança de que a regra de plano aplicada em produção é a intencional, sem depender de qual script rodou por último.
-- **Status:** Aberto
+- **Status:** Resolvido — spec `docs/sdd/specs/001-plan-brokers-fonte-unica.md` (PR #3, 2026-09-11). Fonte única em `src/plans_catalog.py`; `/admin/v2/fix-plan-brokers` agora ressincroniza a partir dela e é idempotente.
 
 ### IMP-005 — P&L calculado com payout fixo de 85%
 - **Onde:** `src/telegram_copier.py`, `src/executor.py` (uso de `stake * 0.85` em vez do `payout` real devolvido pela corretora)
