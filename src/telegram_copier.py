@@ -1215,12 +1215,20 @@ class TelegramCopier:
             return False
 
     def _write_pid(self):
+        """Grava o PID em copier_{user_id}.pid — namespaced por usuário (IMP-001).
+
+        Antes usava o nome fixo "copier.pid", compartilhado entre todos os
+        usuários: o copier de um usuário sobrescrevia o PID do de outro.
+        """
         import os
+        if not self._user_id:
+            logger.warning("_write_pid chamado sem user_id — PID não gravado.")
+            return
         try:
-            with open("copier.pid", "w") as f:
+            with open(f"copier_{self._user_id}.pid", "w") as f:
                 f.write(str(os.getpid()))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Falha ao gravar copier_{self._user_id}.pid: {e}")
 
     async def _try_reconnect_all(self, attempt: int) -> bool:
         """Tenta reconectar broker + Telegram. Retorna True se ambos ok."""
