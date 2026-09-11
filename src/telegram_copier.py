@@ -1106,9 +1106,20 @@ class TelegramCopier:
                 else:
                     trade_status = "lost"
 
-            # Calcula lucro/prejuizo
+            # Calcula lucro/prejuizo — payout real (variacao de saldo), nao um
+            # percentual fixo (IMP-005).
             if trade_status == "won":
-                profit = stake * 0.85
+                profit = self.current_balance - self._balance_before_trade
+                if profit <= 0:
+                    # Saldo pode nao ter atualizado ainda no broker -- tenta mais uma vez.
+                    await asyncio.sleep(3)
+                    self.current_balance = self.broker.get_balance()
+                    profit = self.current_balance - self._balance_before_trade
+                if profit <= 0:
+                    logger.warning(
+                        f"WIN confirmado mas saldo nao refletiu ganho (delta={profit:.2f}). Registrando profit=0."
+                    )
+                    profit = 0.0
                 self.success_count += 1
             else:
                 profit = -stake
