@@ -7,6 +7,7 @@ import asyncio, json, logging, os, sys
 from src.database.session import SessionLocal, sync_engine as engine
 from src.models.user import Base, User, Plan
 from src.core.config import settings
+from src.plans_catalog import PLAN_CATALOG, plan_seed_kwargs
 from fastapi_users.password import PasswordHelper
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -15,14 +16,9 @@ helper = PasswordHelper()
 ADMIN_EMAIL = getattr(settings, "ADMIN_EMAIL", "admin@rde-platform.com") or "admin@rde-platform.com"
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", getattr(settings, "ADMIN_PASSWORD", "admin123456")) or "admin123456"
 
-PLANS = [
-    {"name": "Free",  "max_signals_per_day": 5,    "max_stake": 5.0,   "price_usd": 0.0,  "is_demo": True,
-     "allowed_brokers": '["iqoption", "deriv"]'},
-    {"name": "Pro",   "max_signals_per_day": 100,  "max_stake": 100.0, "price_usd": 19.0, "is_demo": False,
-     "allowed_brokers": '["iqoption", "deriv", "quotex", "pocketoption"]'},
-    {"name": "VIP",   "max_signals_per_day": 99999, "max_stake": 1000.0, "price_usd": 49.0, "is_demo": False,
-     "allowed_brokers": '["iqoption", "quotex", "pocketoption", "deriv"]'},
-]
+# Fonte única (src/plans_catalog.py) — antes esta lista divergia da usada em
+# seed_plans.py/main.py e chegou a liberar Deriv para o Free e tudo para o Pro (IMP-004).
+PLANS = [plan_seed_kwargs(name) for name in PLAN_CATALOG]
 
 
 def _find_state_files():

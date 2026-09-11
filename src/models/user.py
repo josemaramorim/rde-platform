@@ -126,16 +126,6 @@ class Plan(Base):
 
     def get_allowed_brokers(self) -> List[str]:
         """Retorna lista de brokers permitidos para este plano."""
-        import json
-        if not self.allowed_brokers:
-            return []
-        try:
-            return json.loads(self.allowed_brokers)
-        except Exception:
-            return []
-
-    def get_allowed_brokers(self) -> List[str]:
-        """Retorna lista de brokers permitidos para este plano."""
         if not self.allowed_brokers:
             return []
         import json

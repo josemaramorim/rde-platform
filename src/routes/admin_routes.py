@@ -14,6 +14,7 @@ from src.auth.users import current_superuser
 from src.models.user import User, Plan, PlanHistory, AdminLog
 from src.database.session import get_async_session
 from src.logger import log_admin
+from src.plans_catalog import PLAN_CATALOG, VALID_BROKERS, allowed_brokers_json
 
 router = APIRouter(prefix="/admin/v2", tags=["Admin V2"])
 
@@ -237,10 +238,9 @@ async def update_plan_brokers(
     if not plan:
         raise HTTPException(status_code=404, detail=f"Plano '{payload.plan_name}' não encontrado")
 
-    valid = {"iqoption", "deriv", "quotex", "pocketoption"}
     for b in payload.allowed_brokers:
-        if b.lower() not in valid:
-            raise HTTPException(status_code=400, detail=f"Broker '{b}' inválido. Use: {', '.join(sorted(valid))}")
+        if b.lower() not in VALID_BROKERS:
+            raise HTTPException(status_code=400, detail=f"Broker '{b}' inválido. Use: {', '.join(sorted(VALID_BROKERS))}")
 
     plan.allowed_brokers = json.dumps([b.lower() for b in payload.allowed_brokers])
     db.add(plan)
@@ -255,33 +255,27 @@ async def update_plan_brokers(
     return {"status": "success", "plan": plan.name, "allowed_brokers": json.loads(plan.allowed_brokers)}
 
 
-# Regras canônicas de corretoras por plano
-_PLAN_BROKER_RULES = {
-    "free":  ["iqoption"],
-    "pro":   ["iqoption", "deriv"],
-    "vip":   ["iqoption", "deriv", "quotex", "pocketoption"],
-}
-
-
 @router.post("/fix-plan-brokers")
 async def fix_plan_brokers(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(current_superuser),
 ):
-    """Atualiza os brokers de TODOS os planos existentes no banco para as regras corretas.
-    Use este endpoint após o primeiro deploy com as novas regras.
+    """Ressincroniza os brokers de TODOS os planos existentes no banco com a fonte
+    única (src/plans_catalog.py). Idempotente: rodar de novo sem mudanças não reporta nada.
     """
     result = await db.execute(select(Plan))
     plans = result.scalars().all()
     updated = []
     for plan in plans:
-        key = plan.name.lower()
-        if key in _PLAN_BROKER_RULES:
-            new_brokers = json.dumps(_PLAN_BROKER_RULES[key])
-            old_brokers = plan.allowed_brokers
-            plan.allowed_brokers = new_brokers
-            db.add(plan)
-            updated.append({"plan": plan.name, "before": old_brokers, "after": new_brokers})
+        if not any(key.lower() == plan.name.lower() for key in PLAN_CATALOG):
+            continue  # plano fora do catálogo canônico (ex.: nome custom) — não mexe
+        new_brokers = allowed_brokers_json(plan.name)
+        old_brokers = plan.allowed_brokers
+        if old_brokers == new_brokers:
+            continue
+        plan.allowed_brokers = new_brokers
+        db.add(plan)
+        updated.append({"plan": plan.name, "before": old_brokers, "after": new_brokers})
     db.add(AdminLog(
         admin_email=admin.email,
         action="fix_plan_brokers",

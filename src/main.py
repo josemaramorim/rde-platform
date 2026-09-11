@@ -991,15 +991,12 @@ async def startup():
     async with AsyncSessionLocal() as session:
         try:
             from src.models.user import Plan, User
+            from src.plans_catalog import PLAN_CATALOG, plan_seed_kwargs
             from sqlalchemy import select
             from fastapi_users.password import PasswordHelper
 
-            # 1. Cria os planos padrão se não existirem
-            plans_data = [
-                {"name": "Free", "max_signals_per_day": 5, "max_stake": 5.0, "price_usd": 0.0, "is_demo": True, "allowed_brokers": '["iqoption"]'},
-                {"name": "Pro", "max_signals_per_day": 100, "max_stake": 100.0, "price_usd": 19.0, "is_demo": False, "allowed_brokers": '["iqoption", "deriv"]'},
-                {"name": "VIP", "max_signals_per_day": 99999, "max_stake": 1000.0, "price_usd": 49.0, "is_demo": False, "allowed_brokers": '["iqoption", "deriv", "quotex", "pocketoption"]'},
-            ]
+            # 1. Cria os planos padrão se não existirem (fonte única: src/plans_catalog.py — IMP-004)
+            plans_data = [plan_seed_kwargs(name) for name in PLAN_CATALOG]
             for p in plans_data:
                 r = await session.execute(select(Plan).where(Plan.name == p["name"]))
                 if not r.scalar_one_or_none():
