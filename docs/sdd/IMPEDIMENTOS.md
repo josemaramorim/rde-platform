@@ -42,7 +42,7 @@ Status possíveis: `Aberto` · `Em análise` · `Spec aprovada` · `Resolvido`.
 - **Onde:** repositório inteiro; `.github/workflows/docker-publish.yml` só builda e publica a imagem
 - **Problema:** não há suíte de testes real (`src/test_trade.py` é um script manual) nem lint/type-check/test no CI. Um erro de sintaxe já chegou a ser commitado direto na `main` (commit `9aedadb`).
 - **Bloqueia:** qualquer refatoração ou correção dos demais impedimentos com confiança de não quebrar produção.
-- **Status:** Aberto
+- **Status:** Em análise — primeira fatia implementada: spec `docs/sdd/specs/007-testes-e-ci-inicial.md` (PR #21, 2026-09-11) adicionou `pytest`/`pytest-asyncio`, 22 testes cobrindo o que as specs 001/003/006 validaram manualmente, e o primeiro gate de CI em Pull Request do projeto (`.github/workflows/ci.yml` — sintaxe + testes). Continua **aberto**: não cobre `src/` inteiro (testes de PID/log do copier, lint/type-check e o restante do código seguem sem cobertura) — próxima fatia fica pra quando o usuário priorizar.
 
 ---
 

@@ -1,6 +1,6 @@
 # 007 — Primeira fatia de testes automatizados + gate de CI em PRs
 
-- **Status:** Em revisão
+- **Status:** Implementado (PR #21, mergeado em 2026-09-11)
 - **Autor:** josemaramorim (via Claude)
 - **Data:** 2026-09-11
 - **Impedimento(s) relacionado(s):** IMP-006 (`docs/sdd/IMPEDIMENTOS.md`). Não resolve o impedimento inteiro — é uma primeira fatia deliberadamente limitada (ver Contexto).
@@ -54,12 +54,12 @@ Sem migração de schema. Sem edição em `src/broker/*`, `telegram_copier.py`, 
 
 ## Critérios de aceite
 
-- [ ] `pytest tests/ -v` roda localmente e todos os testes passam.
-- [ ] Os testes de `resolve_deriv_symbol` e `plans_catalog` cobrem os casos documentados nas specs 001/003 (regra canônica, caso de descarte).
-- [ ] Os testes de payout cobrem WIN real, LOSS real, e o fallback seguro — pros 3 fluxos (`tradingview_bridge.py`, `telegram_copier.py`, `executor.py`).
-- [ ] `.github/workflows/ci.yml` dispara num Pull R real (verificável abrindo o PR desta implementação e observando o check rodar).
-- [ ] `python -m compileall -q src` roda sem erro (gate de sintaxe).
-- [ ] Nenhum teste faz chamada de rede real ou toca conta de corretora de verdade.
+- [x] `pytest tests/ -v` roda localmente e todos os testes passam.
+- [x] Os testes de `resolve_deriv_symbol` e `plans_catalog` cobrem os casos documentados nas specs 001/003 (regra canônica, caso de descarte).
+- [x] Os testes de payout cobrem WIN real, LOSS real, e o fallback seguro — pros 3 fluxos (`tradingview_bridge.py`, `telegram_copier.py`, `executor.py`).
+- [x] `.github/workflows/ci.yml` dispara num Pull Request real — confirmado no PR #21 (`test — pass — 47s`, https://github.com/josemaramorim/rde-platform/actions/runs/34659354042).
+- [x] `python -m compileall -q src` roda sem erro (gate de sintaxe).
+- [x] Nenhum teste faz chamada de rede real ou toca conta de corretora de verdade.
 
 ## Impacto em performance
 
@@ -71,5 +71,5 @@ Nenhum — testes e CI não tocam o runtime de produção nem o hot path de disp
 
 ## Aprovação
 
-- [ ] Revisado contra `docs/sdd/CONSTITUICAO.md` (§7 autorização; sem violação de §1/§2/§3/§4/§5/§6)
-- [ ] Aprovado explicitamente pelo usuário antes do início da implementação
+- [x] Revisado contra `docs/sdd/CONSTITUICAO.md` (§7 autorização; sem violação de §1/§2/§3/§4/§5/§6)
+- [x] Aprovado explicitamente pelo usuário antes do início da implementação (2026-09-11)
