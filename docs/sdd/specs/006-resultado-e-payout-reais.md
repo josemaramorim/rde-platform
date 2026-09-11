@@ -1,6 +1,6 @@
 # 006 — Resultado e payout reais (calculados pela variação de saldo)
 
-- **Status:** Em revisão
+- **Status:** Implementado (PR #18, mergeado em 2026-09-11)
 - **Autor:** josemaramorim (via Claude)
 - **Data:** 2026-09-11
 - **Impedimento(s) relacionado(s):** IMP-005 (`docs/sdd/IMPEDIMENTOS.md`). Escopo apurado é mais grave que o texto original — inclui um bug de tipo que faz a Deriv (e a ausência total de tratamento para Quotex/Pocket Option) resolverem **todo trade via TradingView como LOSS**, não só o valor do payout.
@@ -66,14 +66,14 @@ Sem migração de schema. `src/broker/*.py` não muda — usa só a interface `g
 
 ## Critérios de aceite
 
-- [ ] `grep -rn "stake \* 0\.85\|stake\*0\.85"` não encontra mais nenhuma ocorrência em `src/`.
-- [ ] Simulação com broker falso (Deriv): saldo sobe após a espera → `_do_wait_and_resolve` registra `profit > 0` correspondente à alta real, não mais sempre `-stake`.
-- [ ] Simulação com broker falso "quotex"/"pocketoption" (sem branch específico): mesma coisa — cai no `else` genérico e calcula o profit real, não mais sempre `-stake`.
-- [ ] `telegram_copier.py`: com `trade_status == "won"` e saldo simulando alta real, `profit` bate com a diferença de saldo, não com `stake * 0.85`.
-- [ ] `executor.py`: mesmo teste no branch BINARY.
-- [ ] Caso saldo não reflita o ganho mesmo depois do retry: `profit` vira `0.0` com log de aviso — nunca um valor negativo pra um WIN confirmado, nem um payout inventado.
-- [ ] Comportamento da IQ Option em `tradingview_bridge.py` inalterado (mesma lógica de antes, não tocada).
-- [ ] Import de todos os módulos tocados limpo; app sobe sem erro.
+- [x] `grep -rn "stake \* 0\.85\|stake\*0\.85"` não encontra mais nenhuma ocorrência em `src/`.
+- [x] Simulação com broker falso (Deriv): saldo sobe após a espera → `_do_wait_and_resolve` registra `profit > 0` correspondente à alta real, não mais sempre `-stake`.
+- [x] Simulação com broker falso "quotex"/"pocketoption" (sem branch específico): mesma coisa — cai no `else` genérico e calcula o profit real, não mais sempre `-stake`.
+- [x] `telegram_copier.py`: com `trade_status == "won"` e saldo simulando alta real, `profit` bate com a diferença de saldo, não com `stake * 0.85`.
+- [x] `executor.py`: mesmo teste no branch BINARY.
+- [x] Caso saldo não reflita o ganho mesmo depois do retry: `profit` vira `0.0` com log de aviso — nunca um valor negativo pra um WIN confirmado, nem um payout inventado.
+- [x] Comportamento da IQ Option em `tradingview_bridge.py` inalterado (mesma lógica de antes, não tocada).
+- [x] Import de todos os módulos tocados limpo; app sobe sem erro.
 
 ## Impacto em performance
 
@@ -85,5 +85,5 @@ Neutro — todas as chamadas de `get_balance()`/`async_get_balance()` já existi
 
 ## Aprovação
 
-- [ ] Revisado contra `docs/sdd/CONSTITUICAO.md` (§1 sem impacto de performance; §2 fonte única — unifica em vez de duplicar tratamento por corretora; §3 zona de alto risco — autorização explícita obrigatória; §7 autorização)
-- [ ] Aprovado explicitamente pelo usuário antes do início da implementação
+- [x] Revisado contra `docs/sdd/CONSTITUICAO.md` (§1 sem impacto de performance; §2 fonte única — unifica em vez de duplicar tratamento por corretora; §3 zona de alto risco — autorização explícita obrigatória; §7 autorização)
+- [x] Aprovado explicitamente pelo usuário antes do início da implementação (2026-09-11)
