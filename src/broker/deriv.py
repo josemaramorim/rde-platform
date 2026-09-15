@@ -245,7 +245,9 @@ class DerivBroker(BaseBroker):
         return run_async(self._get_contract_status_async(contract_id))
 
     async def _get_contract_status_async(self, contract_id: str) -> str:
-        await asyncio.sleep(62)
+        # Sem sleep interno (IMP-009) -- consulta o status imediatamente, como
+        # os equivalentes das outras 3 corretoras. Quem chama e responsavel por
+        # ja ter esperado a duracao apropriada do contrato.
         res = await self._ws_request({"proposal_open_contract": 1, "contract_id": int(contract_id)})
         contract = res.get("proposal_open_contract", {})
         status = contract.get("status")

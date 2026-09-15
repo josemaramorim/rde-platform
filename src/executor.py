@@ -205,20 +205,40 @@ def execute_trade(user, signal: str, db,
                     f"Aguardando expiracao..."
                 )
 
-                deadline = time.time() + 90
-                trade_status = "error"
-                while time.time() < deadline:
-                    time.sleep(5)
-                    try:
-                        trade_status = broker.get_contract_status(contract_id)
-                        if trade_status in ("won", "lost"):
-                            break
-                    except Exception:
-                        continue
-                outcome = "win" if trade_status == "won" else "loss"
+                balance_after = None  # ja obtido no branch Deriv abaixo; evita reconsultar a toa
+                if broker_name in ("deriv", "deriv_demo", "deriv_real"):
+                    # Contratos Deriv tem duracao fixa (DERIV_EXPIRATION_MINUTES),
+                    # independente do timeframe do sinal, e get_contract_status()
+                    # nao e confiavel pro polling curto abaixo (IMP-009): o loop
+                    # generico tem orcamento de 90s, mas a chamada da Deriv
+                    # bloqueava 62s por dentro -- uma unica iteracao ja consumia
+                    # a maior parte do orcamento antes do contrato sequer expirar,
+                    # e o trade virava LOSS registrado por timeout. Espera a
+                    # duracao completa e decide pela variacao real de saldo --
+                    # mesmo metodo ja usado nos outros 2 fluxos (spec 006).
+                    from src.broker.deriv import DerivBroker
+                    wait_seconds = DerivBroker.DERIV_EXPIRATION_MINUTES * 60 + 5
+                    logger.info(f"BINARY (Deriv) aguardando {wait_seconds}s pela expiracao do contrato...")
+                    time.sleep(wait_seconds)
+                    balance_after = broker.get_balance()
+                    outcome = "win" if (balance_after and balance_after > balance) else "loss"
+                else:
+                    deadline = time.time() + 90
+                    trade_status = "error"
+                    while time.time() < deadline:
+                        time.sleep(5)
+                        try:
+                            trade_status = broker.get_contract_status(contract_id)
+                            if trade_status in ("won", "lost"):
+                                break
+                        except Exception:
+                            continue
+                    outcome = "win" if trade_status == "won" else "loss"
+
                 if outcome == "win":
                     # Payout real (variacao de saldo), nao um percentual fixo (IMP-005).
-                    balance_after = broker.get_balance()
+                    if balance_after is None:
+                        balance_after = broker.get_balance()
                     profit_delta = float(balance_after - balance) if balance_after and balance_after > 0 else 0.0
                     if profit_delta <= 0:
                         # Saldo pode nao ter atualizado ainda no broker -- tenta mais uma vez.
