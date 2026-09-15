@@ -10,11 +10,15 @@ import time
 import json
 import os
 import logging
-import threading
 from typing import Optional
 from datetime import datetime
 from src.broker.factory import get_broker
-from src.services.management_3pct import SessionManager
+# SessionManager: fonte unica em src/services/management_3pct.py (IMP-007).
+# Antes havia uma copia quase identica da funcao de cache aqui e em
+# src/routes/tradingview_bridge.py -- um usuario disparando sinal pelos dois
+# fluxos tinha 2 SessionManager independentes, podendo efetivamente dobrar o
+# limite de risco diario.
+from src.services.management_3pct import get_session_manager as _get_session_manager
 from src.strategies.sniper import RDESniperStrategy
 from src.services.news_filter import is_blocked_by_news, get_upcoming_high_impact
 
@@ -27,28 +31,6 @@ DEFAULT_SYMBOL = {
     "deriv": "R_100",
     "iqoption": "EURUSD-OTC",
 }
-
-_session_cache: dict = {}
-_cache_lock = threading.Lock()
-
-
-def _get_session_manager(user_id: int, balance: float, broker_name: str = ""):
-    today = datetime.now().strftime("%Y-%m-%d")
-    cache_key = f"{user_id}_{broker_name}"
-    with _cache_lock:
-        entry = _session_cache.get(cache_key)
-        if entry:
-            sm = entry["manager"]
-            if entry.get("date") != today or entry.get("broker") != broker_name:
-                sm = SessionManager(balance)
-                _session_cache[cache_key] = {"manager": sm, "created_at": time.time(), "date": today, "broker": broker_name}
-                return sm
-            sm.update_balance(balance)
-            return sm
-    sm = SessionManager(balance)
-    with _cache_lock:
-        _session_cache[cache_key] = {"manager": sm, "created_at": time.time(), "date": today, "broker": broker_name}
-    return sm
 
 
 def _write_live_status(user_id, broker_name, session_manager, stake, last_message):

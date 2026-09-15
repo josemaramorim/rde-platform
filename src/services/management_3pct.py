@@ -6,6 +6,10 @@ Apos win, reseta para stake base (1% do saldo atual).
 Meta diaria: 3% do capital base do dia.
 Capital cresce 3% ao dia (juros compostos) apos bater a meta.
 """
+import threading
+import time
+from datetime import datetime
+from typing import Dict
 
 
 class Management3Pct:
@@ -193,5 +197,37 @@ class SessionManager:
 
 
 ai_management = Management3Pct()
+
+
+# ── Cache compartilhado de SessionManager (IMP-007) ───────────────────────
+# Fonte unica: antes duplicado (copia quase identica) em
+# src/routes/tradingview_bridge.py e src/executor.py -- um usuario disparando
+# sinal pelos dois fluxos (TradingView e o endpoint manual POST /signal, via
+# Celery) tinha 2 SessionManager independentes, podendo efetivamente dobrar
+# o limite de risco diario usando os dois canais.
+_session_cache: Dict[str, dict] = {}
+_cache_lock = threading.Lock()
+
+
+def get_session_manager(user_id, balance: float, broker_name: str = "") -> SessionManager:
+    """Retorna o SessionManager em cache de um usuario+corretora, ou cria um
+    novo. Reseta diariamente ou quando a corretora muda."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    cache_key = f"{user_id}_{broker_name}"
+    with _cache_lock:
+        entry = _session_cache.get(cache_key)
+        if entry:
+            sm = entry["manager"]
+            if entry.get("date") != today or entry.get("broker") != broker_name:
+                sm = SessionManager(balance)
+                _session_cache[cache_key] = {"manager": sm, "created_at": time.time(), "date": today, "broker": broker_name}
+                return sm
+            sm.update_balance(balance)
+            return sm
+
+    sm = SessionManager(balance)
+    with _cache_lock:
+        _session_cache[cache_key] = {"manager": sm, "created_at": time.time(), "date": today, "broker": broker_name}
+    return sm
 
 

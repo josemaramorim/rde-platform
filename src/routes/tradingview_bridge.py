@@ -219,31 +219,11 @@ def _map_symbol(symbol: str, broker_name: str) -> Optional[str]:
     return sym_clean
 
 
-# ── SessionManager cache (por user, persiste entre sinais) ──────────
-_session_cache: Dict[int, dict] = {}
-
-
-def _get_session_manager(user_id: int, balance: float, broker_name: str = ""):
-    """Retorna SessionManager existente ou cria novo. Reseta diariamente."""
-    from src.services.management_3pct import SessionManager
-    today = datetime.now().strftime("%Y-%m-%d")
-    cache_key = f"{user_id}_{broker_name}"
-    with _cache_lock:
-        entry = _session_cache.get(cache_key)
-        if entry:
-            sm = entry["manager"]
-            if entry.get("date") != today or entry.get("broker") != broker_name:
-                logger.info(f"Novo dia/broker detectado para user {user_id}. Resetando SessionManager.")
-                sm = SessionManager(balance)
-                _session_cache[cache_key] = {"manager": sm, "created_at": time.time(), "date": today, "broker": broker_name}
-                return sm
-            sm.update_balance(balance)
-            return sm
-
-    sm = SessionManager(balance)
-    with _cache_lock:
-        _session_cache[cache_key] = {"manager": sm, "created_at": time.time(), "date": today, "broker": broker_name}
-    return sm
+# ── SessionManager: fonte unica em src/services/management_3pct.py (IMP-007) ──
+# Antes havia uma copia quase identica desta funcao aqui e em src/executor.py
+# -- um usuario disparando sinal pelos dois fluxos tinha 2 SessionManager
+# independentes, podendo efetivamente dobrar o limite de risco diario.
+from src.services.management_3pct import get_session_manager as _get_session_manager
 
 
 # ── Schema de entrada ────────────────────────────────────────────────
