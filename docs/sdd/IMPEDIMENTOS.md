@@ -61,7 +61,7 @@ Status possíveis: `Aberto` · `Em análise` · `Spec aprovada` · `Resolvido`.
 ### IMP-009 — Timeout fixo de 62s hardcoded na Deriv
 - **Onde:** `src/broker/deriv.py` (`get_contract_status`)
 - **Problema:** espera fixa de 62s antes de checar o contrato, independente do timeframe real do sinal.
-- **Status:** Aberto
+- **Status:** Resolvido — spec `docs/sdd/specs/008-deriv-timeout-real.md` (PR #24, 2026-09-15). Escopo real era maior: o sleep de 62s estourava o orçamento de 90s do loop de polling em `executor.py`, fazendo todo trade Deriv ali ser registrado como LOSS por timeout (mesma classe de sintoma do IMP-005, não documentado aqui originalmente). Sleep removido; `executor.py` passou a esperar a duração fixa do contrato e decidir por variação real de saldo, mesmo método da spec 006.
 
 ---
 
