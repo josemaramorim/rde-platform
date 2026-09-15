@@ -50,8 +50,8 @@ Status possíveis: `Aberto` · `Em análise` · `Spec aprovada` · `Resolvido`.
 
 ### IMP-007 — Caches de conexão de broker duplicados e não sincronizados
 - **Onde:** `src/routes/tradingview_bridge.py` (`_broker_cache`), `src/routes/broker.py` (`_broker_refresh_cache`), `src/executor.py` (`_session_cache`)
-- **Problema:** três caches independentes de conexão/estado de broker, sem invalidação compartilhada — desperdício de conexões e risco de estado inconsistente entre eles.
-- **Status:** Aberto
+- **Problema:** eram na verdade 4 caches independentes (não 3), em 2 pares. Conexão de broker (`tradingview_bridge._broker_cache`, `routes/broker.py._broker_refresh_cache`) — desperdício de conexões, sem invalidação compartilhada. `SessionManager`/ciclo de risco (`tradingview_bridge._session_cache`, `executor._session_cache`) — mais grave: um usuário disparando sinal pelo TradingView e pelo endpoint manual `POST /signal` tinha 2 `SessionManager` independentes, podendo efetivamente dobrar o limite de risco diário.
+- **Status:** Parcialmente resolvido — spec `docs/sdd/specs/009-session-cache-unificado.md` (PR #27, 2026-09-15) unificou só o par de `SessionManager` (o de maior risco) em `src/services/management_3pct.py::get_session_manager`. **Continua aberto** para o par de conexão de broker (`_broker_cache`/`_broker_refresh_cache`) — mais complexo de unificar (padrões de criação/async diferentes entre os arquivos), risco menor (só desperdício de reconexão, não bypass de limite financeiro).
 
 ### IMP-008 — Staleness de até 120s no status de abertura de ativo
 - **Onde:** `src/broker/iqoption.py` (`_start_background_refresh`)

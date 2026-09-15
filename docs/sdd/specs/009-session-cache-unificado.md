@@ -1,6 +1,6 @@
 # 009 — Fonte única para o cache de SessionManager (ciclo de risco)
 
-- **Status:** Em revisão
+- **Status:** Implementado (PR #27, mergeado em 2026-09-15)
 - **Autor:** josemaramorim (via Claude)
 - **Data:** 2026-09-15
 - **Impedimento(s) relacionado(s):** IMP-007 (`docs/sdd/IMPEDIMENTOS.md`). Escopo desta spec cobre só a metade mais arriscada do impedimento (ver Contexto) — a duplicação de cache de *conexão* de broker fica para uma spec futura.
@@ -48,12 +48,12 @@ Sem migração de schema. `SessionManager` em si (a classe) não muda — só on
 
 ## Critérios de aceite
 
-- [ ] `grep -rn "_get_session_manager\|_session_cache" src/routes/tradingview_bridge.py src/executor.py` não encontra mais definição local — só o import/uso da versão canônica.
-- [ ] Simulação: chamar `get_session_manager(user_id, 100.0, "deriv")` a partir de um contexto simulando `tradingview_bridge.py` e depois a partir de um contexto simulando `executor.py` (mesmo `user_id`/`broker_name`) retorna a **mesma instância** de `SessionManager` — não duas independentes.
-- [ ] Reset diário/por-corretora continua funcionando (mesmo comportamento de antes: SessionManager novo se mudar o dia ou a corretora).
-- [ ] `telegram_copier.py` inalterado (não participa deste cache).
-- [ ] `pytest tests/ -v` passa (testes existentes da spec 007/008, sem regressão) e novos testes cobrindo o compartilhamento entre os dois arquivos.
-- [ ] Import de todos os módulos tocados limpo; app sobe sem erro.
+- [x] `grep -rn "_get_session_manager\|_session_cache" src/routes/tradingview_bridge.py src/executor.py` não encontra mais definição local — só o import/uso da versão canônica.
+- [x] Simulação: chamar `get_session_manager(user_id, 100.0, "deriv")` a partir de um contexto simulando `tradingview_bridge.py` e depois a partir de um contexto simulando `executor.py` (mesmo `user_id`/`broker_name`) retorna a **mesma instância** de `SessionManager` — não duas independentes.
+- [x] Reset diário/por-corretora continua funcionando (mesmo comportamento de antes: SessionManager novo se mudar o dia ou a corretora).
+- [x] `telegram_copier.py` inalterado (não participa deste cache).
+- [x] `pytest tests/ -v` passa (testes existentes da spec 007/008, sem regressão) e novos testes cobrindo o compartilhamento entre os dois arquivos.
+- [x] Import de todos os módulos tocados limpo; app sobe sem erro.
 
 ## Impacto em performance
 
@@ -65,5 +65,5 @@ Neutro — mesma operação de dict/lock em memória, só centralizada num lugar
 
 ## Aprovação
 
-- [ ] Revisado contra `docs/sdd/CONSTITUICAO.md` (§2 fonte única — objetivo direto desta spec; §3 zona de alto risco parcial; §7 autorização)
-- [ ] Aprovado explicitamente pelo usuário antes do início da implementação
+- [x] Revisado contra `docs/sdd/CONSTITUICAO.md` (§2 fonte única — objetivo direto desta spec; §3 zona de alto risco parcial; §7 autorização)
+- [x] Aprovado explicitamente pelo usuário antes do início da implementação (2026-09-15)
