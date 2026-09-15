@@ -1,6 +1,6 @@
 # 008 — Remove o sleep(62) fixo da Deriv; corrige polling em executor.py
 
-- **Status:** Em revisão
+- **Status:** Implementado (PR #24, mergeado em 2026-09-15)
 - **Autor:** josemaramorim (via Claude)
 - **Data:** 2026-09-14
 - **Impedimento(s) relacionado(s):** IMP-009 (`docs/sdd/IMPEDIMENTOS.md`). Escopo apurado é mais grave que "espera imprecisa" — inclui um caso em que `executor.py` provavelmente registra todo trade Deriv como LOSS por timeout, mesma classe de sintoma do IMP-005 (já resolvido nos outros 2 fluxos), só que por timing em vez de bug de tipo.
@@ -38,14 +38,14 @@ Sem migração de schema. `telegram_copier.py` e `tradingview_bridge.py` não pr
 
 ## Critérios de aceite
 
-- [ ] `grep -n "asyncio.sleep(62)" src/broker/deriv.py` não encontra mais nada.
-- [ ] Simulação: `_get_contract_status_async` chamada diretamente (sem esperar) retorna o status da primeira consulta, sem atraso interno.
-- [ ] `executor.py`: trade Deriv simulado com saldo subindo (WIN real) e um `get_contract_status` falso que nunca resolveria a tempo no loop antigo — registra `outcome="win"` e `profit_delta` correto, não mais `"loss"` por timeout.
-- [ ] `executor.py`: trade Deriv simulado com saldo caindo (LOSS real) continua registrando `outcome="loss"` corretamente.
-- [ ] IQ Option, Quotex e Pocket Option em `executor.py` continuam usando o loop de polling genérico, comportamento inalterado.
-- [ ] `telegram_copier.py`: fluxo continua funcionando (usa o árbitro de saldo já existente se `get_contract_status` vier incerto) — sem regressão, testável reexecutando os testes da spec 006/007 que já cobrem esse arquivo.
-- [ ] Testes novos adicionados em `tests/` (spec 007 já deixou a infraestrutura de teste pronta) e `pytest tests/ -v` passa, incluindo os testes já existentes.
-- [ ] Import de todos os módulos tocados limpo; app sobe sem erro.
+- [x] `grep -n "asyncio.sleep(62)" src/broker/deriv.py` não encontra mais nada.
+- [x] Simulação: `_get_contract_status_async` chamada diretamente (sem esperar) retorna o status da primeira consulta, sem atraso interno.
+- [x] `executor.py`: trade Deriv simulado com saldo subindo (WIN real) e um `get_contract_status` falso que nunca resolveria a tempo no loop antigo — registra `outcome="win"` e `profit_delta` correto, não mais `"loss"` por timeout.
+- [x] `executor.py`: trade Deriv simulado com saldo caindo (LOSS real) continua registrando `outcome="loss"` corretamente.
+- [x] IQ Option, Quotex e Pocket Option em `executor.py` continuam usando o loop de polling genérico, comportamento inalterado.
+- [x] `telegram_copier.py`: fluxo continua funcionando (usa o árbitro de saldo já existente se `get_contract_status` vier incerto) — sem regressão, testável reexecutando os testes da spec 006/007 que já cobrem esse arquivo.
+- [x] Testes novos adicionados em `tests/` (spec 007 já deixou a infraestrutura de teste pronta) e `pytest tests/ -v` passa, incluindo os testes já existentes.
+- [x] Import de todos os módulos tocados limpo; app sobe sem erro.
 
 ## Impacto em performance
 
@@ -57,5 +57,5 @@ Sem migração de schema. `telegram_copier.py` e `tradingview_bridge.py` não pr
 
 ## Aprovação
 
-- [ ] Revisado contra `docs/sdd/CONSTITUICAO.md` (§1 melhora de latência — objetivo direto; §3 zona de alto risco — autorização explícita obrigatória; §7 autorização)
-- [ ] Aprovado explicitamente pelo usuário antes do início da implementação
+- [x] Revisado contra `docs/sdd/CONSTITUICAO.md` (§1 melhora de latência — objetivo direto; §3 zona de alto risco — autorização explícita obrigatória; §7 autorização)
+- [x] Aprovado explicitamente pelo usuário antes do início da implementação (2026-09-15)
