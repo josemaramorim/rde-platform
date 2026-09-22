@@ -1,6 +1,6 @@
 # 011 — Corrige `NameError` em `refresh_balance` que zera o saldo exibido
 
-- **Status:** Em revisão
+- **Status:** Implementado
 - **Autor:** josemaramorim (via Claude)
 - **Data:** 2026-09-22
 - **Impedimento(s) relacionado(s):** Nenhum registrado ainda em `IMPEDIMENTOS.md` — bug encontrado nesta sessão a partir de um relato do usuário (dashboard mostrando saldo $0.00 com IQOption conectada).
@@ -41,10 +41,10 @@ Sem migração de schema.
 
 ## Critérios de aceite
 
-- [ ] `POST /broker/refresh-balance` não gera mais `NameError: name 'asyncio' is not defined` (verificado manualmente via chamada à rota com uma corretora demo configurada).
-- [ ] Após o refresh, `BrokerSetting.balance` no banco reflete o saldo real da corretora (verificado consultando o banco ou observando o dashboard atualizar de `$0.00` para o valor real).
-- [ ] `trades.log` deixa de registrar `Erro no pool de busca de saldos: name 'asyncio' is not defined` após o fix.
-- [ ] Import do módulo limpo; app sobe sem erro em `ENVIRONMENT=development`.
+- [x] `POST /broker/refresh-balance` não gera mais `NameError: name 'asyncio' is not defined` — confirmado no `trades.log` do processo já rodando localmente do usuário (uvicorn com `--reload` recarregou automaticamente ao salvar o arquivo).
+- [x] Após o refresh, `BrokerSetting.balance` no banco reflete o saldo real da corretora — log `Broker balance from cache (age=0s): $11507.06` logo após o restart, confirmado estável em 2 ciclos seguintes (`age=33s`, `age=50s`).
+- [x] `trades.log` deixa de registrar `Erro no pool de busca de saldos: name 'asyncio' is not defined` após o fix — zero ocorrências nos ~90s observados após o restart (antes, ocorria a cada ~30s).
+- [x] Import do módulo limpo; app sobe sem erro em `ENVIRONMENT=development` — validado via `python -m py_compile` e import real do módulo (`import src.routes.broker`) antes do restart automático do servidor do usuário.
 
 ## Impacto em performance
 
@@ -56,5 +56,5 @@ Nenhum — só corrige um erro que impedia o código (já assíncrono, via `Thre
 
 ## Aprovação
 
-- [ ] Revisado contra `docs/sdd/CONSTITUICAO.md` (§7 autorização)
-- [ ] Aprovado explicitamente pelo usuário antes do início da implementação
+- [x] Revisado contra `docs/sdd/CONSTITUICAO.md` (§7 autorização)
+- [x] Aprovado explicitamente pelo usuário antes do início da implementação (2026-09-22)

@@ -493,6 +493,9 @@ async def refresh_balance(
             return {"status": "busy", "message": "Atualização de saldo já em andamento", "balance": 0.0, "brokers": []}
         _active_refresh_users.add(user.id)
 
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
+
     try:
         stmt = select(BrokerSetting).where(
             BrokerSetting.user_id == user.id,
