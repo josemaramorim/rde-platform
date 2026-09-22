@@ -1,6 +1,6 @@
 # 012 — Corrige HTTP 400 no console de logs do próprio dashboard
 
-- **Status:** Em revisão
+- **Status:** Implementado
 - **Autor:** josemaramorim (via Claude)
 - **Data:** 2026-09-22
 - **Impedimento(s) relacionado(s):** Nenhum registrado em `IMPEDIMENTOS.md` — regressão de integração após a mudança de log global para log por usuário (IMP-001), encontrada nesta sessão a partir de relato do usuário.
@@ -49,11 +49,11 @@ Sem migração de schema, sem mudança de backend.
 
 ## Critérios de aceite
 
-- [ ] No Dashboard do próprio usuário (admin ou não), "Ver Console de Logs" carrega o log sem erro HTTP 400.
-- [ ] Terminal exibe linhas reais de `copier_{user_id}.log` do usuário logado (ou a mensagem de "nenhum log gerado ainda", se o arquivo não existir) — não mais "Total: 0 linhas | Exibindo 0" por erro.
-- [ ] Auto-refresh (3s padrão) continua funcionando sem novos erros 400.
-- [ ] Botão "🧹 Limpar" não aparece mais no modal quando aberto a partir do Dashboard próprio (antes quebrava do mesmo jeito; comportamento aceito, não é regressão de algo que funcionava).
-- [ ] Painel Admin (`admin/page.tsx`) inalterado — continua com o problema pré-existente do botão global sem `user_id`, fora do escopo desta spec.
+- [x] No Dashboard do próprio usuário (admin ou não), "Ver Console de Logs" carrega o log sem erro HTTP 400 — confirmado pelo usuário via screenshot: terminal exibindo 46 linhas reais.
+- [x] Terminal exibe linhas reais de `copier_{user_id}.log` do usuário logado — confirmado (log de conexão IQOption, saldo, sessão Telegram, etc., todos visíveis).
+- [x] Auto-refresh (3s padrão) continua funcionando sem novos erros 400 — badge "Live Feed Ativo (atualizando a cada 3s)" visível e ativo no screenshot.
+- [x] Botão "🧹 Limpar" não aparece mais no modal quando aberto a partir do Dashboard próprio — confirmado (não aparece no screenshot; só "Atualizar/Copiar/Baixar/Fechar").
+- [x] Painel Admin (`admin/page.tsx`) inalterado — não tocado nesta spec.
 
 ## Impacto em performance
 
@@ -65,5 +65,5 @@ Nenhum — só corrige qual endpoint HTTP é chamado no frontend, não adiciona 
 
 ## Aprovação
 
-- [ ] Revisado contra `docs/sdd/CONSTITUICAO.md` (§7 autorização)
-- [ ] Aprovado explicitamente pelo usuário antes do início da implementação
+- [x] Revisado contra `docs/sdd/CONSTITUICAO.md` (§7 autorização)
+- [x] Aprovado explicitamente pelo usuário antes do início da implementação (2026-09-22)
