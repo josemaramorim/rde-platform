@@ -18,8 +18,8 @@ logger = logging.getLogger("rde")
 
 router = APIRouter(prefix="/telegram", tags=["Telegram Auth"])
 
-API_ID = settings.TELEGRAM_API_ID or 24906269
-API_HASH = settings.TELEGRAM_API_HASH or "4826f9dd0be48b617f94fc04b88ffabc"
+API_ID = settings.TELEGRAM_API_ID
+API_HASH = settings.TELEGRAM_API_HASH
 
 
 

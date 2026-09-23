@@ -165,8 +165,8 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = Field(default="", description="Telegram bot token")
     TELEGRAM_CHAT_ID: str = Field(default="", description="Telegram group chat ID")
     TELEGRAM_GROUP_NAME: str = Field(default="", description="Telegram group name")
-    TELEGRAM_API_ID: int = Field(default=24906269, description="Telegram API ID")
-    TELEGRAM_API_HASH: str = Field(default="4826f9dd0be48b617f94fc04b88ffabc", description="Telegram API Hash")
+    TELEGRAM_API_ID: int = Field(default=0, description="Telegram API ID (my.telegram.org) -- 0 forca configuracao explicita")
+    TELEGRAM_API_HASH: str = Field(default="change-in-production-telegram-api-hash", description="Telegram API Hash (my.telegram.org)")
     TELEGRAM_PHONE: str = Field(default="", description="Phone number for Telethon auth (+5511999999999)")
 
     # ==================== ADMIN ====================
@@ -207,6 +207,22 @@ class Settings(BaseSettings):
                 raise ValueError("❌ ENCRYPTION_KEY não foi alterado! Use um valor seguro")
             if len(v) < 32:
                 raise ValueError("❌ ENCRYPTION_KEY deve ter pelo menos 32 caracteres")
+        return v
+
+    @field_validator("TELEGRAM_API_ID")
+    @classmethod
+    def validate_telegram_api_id(cls, v: int, info) -> int:
+        env = info.data.get("ENVIRONMENT", "development")
+        if env == "production" and v <= 0:
+            raise ValueError("❌ TELEGRAM_API_ID não foi configurado! Gere o seu em https://my.telegram.org")
+        return v
+
+    @field_validator("TELEGRAM_API_HASH")
+    @classmethod
+    def validate_telegram_api_hash(cls, v: str, info) -> str:
+        env = info.data.get("ENVIRONMENT", "development")
+        if env == "production" and (not v or "change-in-production" in v.lower()):
+            raise ValueError("❌ TELEGRAM_API_HASH não foi alterado! Gere o seu em https://my.telegram.org")
         return v
 
     @field_validator("DATABASE_URL")

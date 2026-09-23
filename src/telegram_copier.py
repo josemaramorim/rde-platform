@@ -53,8 +53,8 @@ DEFAULT_SYMBOL = {
 
 class TelegramCopier:
     def __init__(self, session_name='rde_user_session', user_id=None, broker_name=None):
-        self.api_id = settings.TELEGRAM_API_ID or 24906269
-        self.api_hash = settings.TELEGRAM_API_HASH or "4826f9dd0be48b617f94fc04b88ffabc"
+        self.api_id = settings.TELEGRAM_API_ID
+        self.api_hash = settings.TELEGRAM_API_HASH
         chats_list = []
         if settings.TELEGRAM_CHAT_ID:
             for c in settings.TELEGRAM_CHAT_ID.split(","):
