@@ -443,14 +443,14 @@ async def test_broker_connection(
             return {"status": "error", "message": f"Corretora '{broker_name}' nao suportada."}
 
         loop = asyncio.get_event_loop()
-        with ThreadPoolExecutor() as pool:
-            try:
-                result = await asyncio.wait_for(
-                    loop.run_in_executor(pool, _connect_and_balance),
-                    timeout=35.0
-                )
-            except asyncio.TimeoutError:
-                return {"status": "error", "message": f"Tempo limite atingido ao conectar com {broker_name.upper()}. Verifique suas credenciais e tente novamente."}
+        pool = ThreadPoolExecutor()
+        try:
+            result = await asyncio.wait_for(
+                loop.run_in_executor(pool, _connect_and_balance),
+                timeout=35.0
+            )
+        except asyncio.TimeoutError:
+            return {"status": "error", "message": f"Tempo limite atingido ao conectar com {broker_name.upper()}. Verifique suas credenciais e tente novamente."}
 
 
         # Save balance to DB so dashboard can read it
@@ -600,13 +600,13 @@ async def refresh_balance(
 
         try:
             loop = asyncio.get_running_loop()
-            with ThreadPoolExecutor(max_workers=max(len(settings), 1)) as pool:
-                tasks = [loop.run_in_executor(pool, _fetch_one_balance, s) for s in settings]
-                try:
-                    raw_results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=25.0)
-                except asyncio.TimeoutError:
-                    logger.warning(f"Timeout ao buscar saldos de corretoras para usuario {user.id}")
-                    raw_results = [{"broker": s.broker_name, "status": "timeout", "message": "Tempo limite excedido"} for s in settings]
+            pool = ThreadPoolExecutor(max_workers=max(len(settings), 1))
+            tasks = [loop.run_in_executor(pool, _fetch_one_balance, s) for s in settings]
+            try:
+                raw_results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=25.0)
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout ao buscar saldos de corretoras para usuario {user.id}")
+                raw_results = [{"broker": s.broker_name, "status": "timeout", "message": "Tempo limite excedido"} for s in settings]
         except Exception as pool_err:
             logger.error(f"Erro no pool de busca de saldos: {pool_err}")
             raw_results = []
@@ -752,8 +752,11 @@ async def test_trade(
 
     try:
         loop = asyncio.get_event_loop()
-        with ThreadPoolExecutor() as pool:
-            return await loop.run_in_executor(pool, _place_trade)
+        pool = ThreadPoolExecutor()
+        try:
+            return await asyncio.wait_for(loop.run_in_executor(pool, _place_trade), timeout=35.0)
+        except asyncio.TimeoutError:
+            return {"status": "error", "message": "Tempo limite atingido ao executar operacao de teste."}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 

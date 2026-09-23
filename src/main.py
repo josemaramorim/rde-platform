@@ -251,8 +251,11 @@ async def _sync_broker_balance(
 
     try:
         loop = asyncio.get_event_loop()
-        with ThreadPoolExecutor() as pool:
-            balance = await loop.run_in_executor(pool, _fetch)
+        pool = ThreadPoolExecutor()
+        try:
+            balance = await asyncio.wait_for(loop.run_in_executor(pool, _fetch), timeout=25.0)
+        except asyncio.TimeoutError:
+            balance = None
     except Exception:
         return None
 
