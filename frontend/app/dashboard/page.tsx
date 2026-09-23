@@ -614,7 +614,7 @@ export default function DashboardPage() {
             isOpen={showLogsModal}
             onClose={() => setShowLogsModal(false)}
             token={token}
-            isAdmin={Boolean(estado?.is_admin)}
+            isAdmin={false}
           />
       </div>
     </div>
