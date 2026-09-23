@@ -83,9 +83,9 @@ Status possíveis: `Aberto` · `Em análise` · `Spec aprovada` · `Resolvido`.
 - **Status:** Aberto
 
 ### IMP-013 — Segredos com fallback hardcoded
-- **Onde:** `docker-compose.yml`, `docker-compose.icp.yml` (token do Telegram e chat ID como fallback), `src/core/config.py` (`ADMIN_PASSWORD` padrão `admin123456`), `docs/GUIA_POSTGRESQL_E_ADMIN.md` (credenciais padrão do Postgres documentadas em texto puro)
+- **Onde:** `docker-compose.yml`, `docker-compose.icp.yml` (token do Telegram e chat ID como fallback), `src/core/config.py` (`ADMIN_PASSWORD` padrão `admin123456`; `TELEGRAM_API_ID`/`TELEGRAM_API_HASH` — resolvido, spec 017), `src/telegram_copier.py` e `src/routes/telegram_auth.py` (duplicavam o fallback de `TELEGRAM_API_ID`/`TELEGRAM_API_HASH` — resolvido, spec 017), `docs/GUIA_POSTGRESQL_E_ADMIN.md` (credenciais padrão do Postgres documentadas em texto puro)
 - **Problema:** segredos reais expostos no histórico do git como valores padrão.
-- **Status:** Aberto
+- **Status:** Aberto (`TELEGRAM_API_ID`/`TELEGRAM_API_HASH` resolvidos via spec 017; `ADMIN_PASSWORD`, `docker-compose*.yml` e o guia continuam pendentes — spec 010 ficou só no rascunho, código nunca foi implementado)
 
 ### IMP-014 — Três fluxos de execução de sinal parcialmente duplicados
 - **Onde:** `src/telegram_copier.py`, `src/routes/tradingview_bridge.py`, `src/executor.py` + `src/celery_worker.py`
