@@ -1,6 +1,6 @@
 # 015 — Painel Admin: "Ver Logs" passa a ser por usuário (corrige HTTP 400)
 
-- **Status:** Em revisão
+- **Status:** Implementado
 - **Autor:** josemaramorim (via Claude)
 - **Data:** 2026-09-23
 - **Impedimento(s) relacionado(s):** Nenhum registrado em `IMPEDIMENTOS.md` — mesma raiz da spec 012 (IMP-001, log por usuário), parte que ficou explicitamente fora de escopo naquela spec.
@@ -38,11 +38,12 @@ Nenhuma mudança de backend — `src/main.py:527-539` já está correto, só exi
 
 ## Critérios de aceite
 
-- [ ] Painel Admin não tem mais botão de "Logs" global no cabeçalho.
-- [ ] Cada linha da tabela de usuários tem uma ação "Logs" que abre o terminal já com o `user_id` daquela linha — carrega sem erro HTTP 400.
-- [ ] Terminal exibe linhas reais de `copier_{user_id}.log` do usuário selecionado (ou "nenhum log gerado ainda", se vazio).
-- [ ] Botão "🧹 Limpar" (dentro do modal, quando `isAdmin`) continua funcionando, agora com `user_id` correto.
-- [ ] Dashboard próprio (`dashboard/page.tsx`, spec 012) inalterado — continua usando `/copier/logs` sem `userId`.
+- [x] Painel Admin não tem mais botão de "Logs" global no cabeçalho.
+- [x] Cada linha da tabela de usuários tem uma ação "🖥️ Logs" que abre o terminal já com o `user_id` daquela linha, via `&user_id=` na query string.
+- [x] `LogTerminalModal` não chama a API quando `isAdmin` e sem `userId` — mostra "Selecione um usuário para ver os logs." em vez de repetir o 400.
+- [x] Botão "🧹 Limpar" só aparece quando `isAdmin && userId`; a chamada `DELETE` inclui `?user_id=`.
+- [x] Dashboard próprio (`dashboard/page.tsx`, spec 012) inalterado — continua usando `/copier/logs` sem `userId` (prop opcional, default `null`, ignorada no ramo não-admin).
+- [x] `npx tsc --noEmit` limpo após as mudanças.
 
 ## Impacto em performance
 
@@ -54,5 +55,5 @@ Nenhum — mudança de UI/parâmetro de request, sem novo hot path.
 
 ## Aprovação
 
-- [ ] Revisado contra `docs/sdd/CONSTITUICAO.md` (§7 autorização)
-- [ ] Aprovado explicitamente pelo usuário antes do início da implementação
+- [x] Revisado contra `docs/sdd/CONSTITUICAO.md` (§7 autorização)
+- [x] Aprovado explicitamente pelo usuário antes do início da implementação (2026-09-23)
