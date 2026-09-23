@@ -2,6 +2,8 @@
 
 Testa o fluxo Telegram → ordem → resultado sem esperar um sinal real chegar. O script só **envia** a mensagem de teste; o `telegram_copier.py` da aplicação precisa já estar rodando e escutando o canal antes de você mandar o sinal.
 
+> Pra configuração de ambiente (canal de teste, credenciais, restart do backend) e troubleshooting, ver [`docs/GUIA_TESTE_MANUAL_SINAL_TELEGRAM.md`](../docs/GUIA_TESTE_MANUAL_SINAL_TELEGRAM.md) — este README aqui cobre só o script em si.
+
 ## Passo a passo
 
 1. **Canal de teste no Telegram** + **conta de teste separada** (membro só desse canal) + **usuário RDE de teste** com a corretora em modo **demo**, com essa conta de teste conectada a ele (fluxo normal de "Conectar Telegram" no dashboard). Ligue o copier desse usuário e confirme que ele achou o canal de teste.
