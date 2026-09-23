@@ -1411,6 +1411,11 @@ class TelegramCopier:
             self.is_running = False
             return
 
+        def _normalize_group_name(name: str) -> str:
+            """Mantem so letras/numeros (case-insensitive) -- tolera emoji/espaco/
+            pontuacao dos dois lados, sem virar match por substring solto (spec 016)."""
+            return re.sub(r"[^a-z0-9]", "", (name or "").lower())
+
         monitored_names = []
         try:
             dialogs = await self.client.get_dialogs(limit=100)
@@ -1421,23 +1426,29 @@ class TelegramCopier:
                     if d.id in self.target_chats:
                         monitored_names.append(f"'{d.name}' (ID: {d.id})")
 
-            # 2. Se tem nome de grupo configurado, busca pelo nome exato ou normalizado
+            # 2. Nome configurado: match EXATO apos normalizar. Se mais de um grupo
+            #    bater, e ambiguo -- recusa a adivinhar e erra de forma visivel.
             if not monitored_names and group_name_cfg:
-                for d in dialogs:
-                    d_clean = d.name.lower().replace(" ", "").replace("_", "")
-                    cfg_clean = group_name_cfg.lower().replace(" ", "").replace("_", "")
-                    if (d.is_channel or d.is_group) and (cfg_clean in d_clean or d_clean in cfg_clean or group_name_cfg.lower() in d.name.lower()):
-                        self.target_chats = [d.id]
-                        monitored_names.append(f"'{d.name}' (ID: {d.id})")
-                        break
-
-            # 3. Fallback inteligente apenas se o nome configurado for variações de R&DE
-            if not monitored_names and ("r&de" in group_name_cfg.lower() or "rde" in group_name_cfg.lower()):
-                for d in dialogs:
-                    if (d.is_channel or d.is_group) and ("r&de" in d.name.lower() or "rde" in d.name.lower()):
-                        self.target_chats = [d.id]
-                        monitored_names.append(f"'{d.name}' (ID: {d.id})")
-                        break
+                cfg_norm = _normalize_group_name(group_name_cfg)
+                candidates = [
+                    d for d in dialogs
+                    if (d.is_channel or d.is_group) and _normalize_group_name(d.name) == cfg_norm
+                ]
+                if len(candidates) == 1:
+                    d = candidates[0]
+                    self.target_chats = [d.id]
+                    monitored_names.append(f"'{d.name}' (ID: {d.id})")
+                elif len(candidates) > 1:
+                    names = ", ".join(f"'{d.name}' (ID: {d.id})" for d in candidates)
+                    err_msg = (
+                        f"Nome de canal '{group_name_cfg}' é ambíguo -- {len(candidates)} grupos "
+                        f"da conta batem após normalização: {names}. Configure TELEGRAM_CHAT_ID "
+                        f"com o ID exato em vez de depender do nome."
+                    )
+                    logger.error(f"❌ [TELEGRAM] {err_msg}")
+                    self.update_live_status(f"Erro: {err_msg}")
+                    self.is_running = False
+                    return
         except Exception as e:
             logger.debug(f"Falha ao validar canais: {e}")
 
