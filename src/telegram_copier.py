@@ -1089,18 +1089,24 @@ class TelegramCopier:
 
             # Verifica resultado
             trade_status = self.broker.get_contract_status(contract_id)
-            
-            # Se status incerto (error), aguarda 2s para atualizar saldo e tenta novamente
-            if trade_status == "error":
-                logger.warning(f"Status da ordem {contract_id} incerto. Aguardando saldo...")
-                await asyncio.sleep(2)
+
+            # Se status incerto (error), aguarda o saldo assentar e tenta de novo.
+            # Ate 3 tentativas (spec 019) -- desistir cedo demais faz o codigo cair
+            # no arbitro de saldo antes do credito da corretora ser realmente
+            # creditado, classificando a ordem errada e "vazando" o credito
+            # atrasado pro calculo de lucro da ordem SEGUINTE.
+            retries = 0
+            while trade_status == "error" and retries < 3:
+                logger.warning(f"Status da ordem {contract_id} incerto. Aguardando saldo assentar (tentativa {retries+1}/3)...")
+                await asyncio.sleep(3)
                 trade_status = self.broker.get_contract_status(contract_id)
+                retries += 1
 
             self.current_balance = self.broker.get_balance()
 
             # Se status ainda incerto (error), usa a variação do saldo como arbitro final
             if trade_status == "error":
-                logger.warning(f"Status da ordem {contract_id} permaneceu incerto. Usando variação de saldo como arbitro.")
+                logger.warning(f"Status da ordem {contract_id} permaneceu incerto apos {retries} tentativas. Usando variação de saldo como arbitro.")
                 if self.current_balance > self._balance_before_trade:
                     trade_status = "won"
                 else:
@@ -1120,6 +1126,17 @@ class TelegramCopier:
                         f"WIN confirmado mas saldo nao refletiu ganho (delta={profit:.2f}). Registrando profit=0."
                     )
                     profit = 0.0
+                elif profit > stake * 2:
+                    # Payout de opcao binaria/turbo nunca chega a 100% -- um delta maior
+                    # que 2x o stake indica que o saldo carregou junto o credito atrasado
+                    # de uma ordem anterior que ficou incerta (spec 019). Nao deixa esse
+                    # valor corromper sessao/meta/historico.
+                    logger.warning(
+                        f"Profit calculado (${profit:.2f}) muito acima do payout esperado para "
+                        f"stake ${stake:.2f} -- provavel credito atrasado de ordem anterior "
+                        f"somado ao desta. Limitando a ${stake*0.95:.2f}."
+                    )
+                    profit = round(stake * 0.95, 2)
                 self.success_count += 1
             else:
                 profit = -stake

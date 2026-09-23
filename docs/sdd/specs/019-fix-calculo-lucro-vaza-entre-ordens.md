@@ -1,6 +1,6 @@
 # 019 — Cálculo de lucro por diferença de saldo "vaza" entre ordens consecutivas
 
-- **Status:** Em revisão
+- **Status:** Implementado
 - **Autor:** josemaramorim (via Claude)
 - **Data:** 2026-09-23
 - **Impedimento(s) relacionado(s):** Nenhum registrado ainda — bug real observado no teste manual desta sessão (dois WINs reais na corretora viraram 1 LOSS + 1 WIN com lucro absurdo no app).
@@ -76,10 +76,10 @@ Sem migração de schema.
 
 ## Critérios de aceite
 
-- [ ] Uma ordem cujo `get_contract_status` fica incerto agora tenta até 3x (9s extras) antes de cair no fallback de saldo, reduzindo a chance de julgar errado por saldo ainda não assentado.
-- [ ] Um `profit` calculado maior que `2x` o stake é limitado a `95%` do stake e loga aviso — não é mais propagado como está para sessão/meta/histórico.
-- [ ] Caminho feliz (status confirmado rápido, profit dentro do esperado) inalterado.
-- [ ] Import do módulo limpo; comportamento observável de LOSS inalterado (`profit = -stake` continua igual).
+- [x] Uma ordem cujo `get_contract_status` fica incerto agora tenta até 3x (9s extras) antes de cair no fallback de saldo, reduzindo a chance de julgar errado por saldo ainda não assentado.
+- [x] Um `profit` calculado maior que `2x` o stake é limitado a `95%` do stake e loga aviso — validado isoladamente: `$622,29` (caso real do teste manual) vira `$109,32`; um payout normal de `$94,36` (82% de `$115,07`) passa sem alteração.
+- [x] Caminho feliz (status confirmado rápido, profit dentro do esperado) inalterado.
+- [x] Import do módulo limpo (`python -m py_compile` + `import src.telegram_copier`); comportamento observável de LOSS inalterado (`profit = -stake` continua igual).
 
 ## Impacto em performance
 
@@ -91,5 +91,5 @@ Pode adicionar até ~9s de espera extra **só no caso raro de status incerto** (
 
 ## Aprovação
 
-- [ ] Revisado contra `docs/sdd/CONSTITUICAO.md` (§3 zona de alto risco — autorização explícita obrigatória; §4 código limpo — aviso logado com contexto, não `except: pass`; §7 autorização)
-- [ ] Aprovado explicitamente pelo usuário antes do início da implementação
+- [x] Revisado contra `docs/sdd/CONSTITUICAO.md` (§3 zona de alto risco — autorização explícita obrigatória; §4 código limpo — aviso logado com contexto, não `except: pass`; §7 autorização)
+- [x] Aprovado explicitamente pelo usuário antes do início da implementação (2026-09-23)
