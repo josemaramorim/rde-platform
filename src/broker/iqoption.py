@@ -178,26 +178,38 @@ class IQOptionBroker(BaseBroker):
             logger.warning(f"get_all_init falhou (continuando): {e}")
 
     def _refresh_open_status(self):
-        """Consulta a corretora e monta self._open_map[nome_completo] = aberto_agora."""
+        """Consulta a corretora e monta self._open_map[nome_completo] = aberto_agora.
+
+        So turbo/binary -- unicas categorias usadas por _build_asset_map. Nao usa
+        get_all_open_time() da lib vendorizada: esse metodo tambem calcula status
+        "digital" (nao usado aqui) e trava ate 30s quando a corretora nao responde
+        essa parte, descartando os dados de turbo/binary ja calculados com sucesso
+        (spec 014 / IMP-008).
+        """
         self._open_map = {}
         if self.api is None:
             return
         try:
-            open_time = None
-            if hasattr(self.api, "get_all_open_time"):
-                open_time = self.api.get_all_open_time()
-            elif hasattr(self.api, "api") and hasattr(self.api.api, "get_all_open_time"):
-                open_time = self.api.api.get_all_open_time()
+            init_data = None
+            if hasattr(self.api, "get_all_init_v2"):
+                init_data = self.api.get_all_init_v2()
+            elif hasattr(self.api, "api") and hasattr(self.api.api, "get_all_init_v2"):
+                init_data = self.api.api.get_all_init_v2()
 
-            if not open_time or not isinstance(open_time, dict):
+            if not init_data or not isinstance(init_data, dict):
                 return
-            for category in ("turbo", "binary", "other", "digital"):
-                cat_data = open_time.get(category) or {}
-                if not isinstance(cat_data, dict):
+            for category in ("turbo", "binary"):
+                actives = (init_data.get(category) or {}).get("actives", {})
+                if not isinstance(actives, dict):
                     continue
-                for name, info in cat_data.items():
-                    if info and isinstance(info, dict) and "open" in info:
-                        self._open_map[name] = bool(info["open"])
+                for _, active in actives.items():
+                    if not isinstance(active, dict):
+                        continue
+                    raw = active.get("name", "")
+                    name = raw[raw.index(".") + 1:] if "." in raw else raw
+                    if not name:
+                        continue
+                    self._open_map[name] = bool(active.get("enabled")) and not bool(active.get("is_suspended"))
             if self._open_map:
                 logger.info(f"Open-status atualizado: {sum(1 for v in self._open_map.values() if v)} ativos abertos de {len(self._open_map)}")
         except Exception as e:
