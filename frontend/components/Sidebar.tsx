@@ -43,7 +43,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="w-64 glass border-r border-slate-800/40 flex flex-col sticky top-0 h-screen select-none z-50">
+    <aside className="w-64 glass border-r border-slate-800/40 flex flex-col sticky top-0 h-screen select-none">
       {/* Brand/Header */}
       <Link href="/" className="p-8 block hover:opacity-80 transition-opacity">
         <h1 className="text-2xl font-black text-white tracking-widest text-gradient">RDE</h1>
