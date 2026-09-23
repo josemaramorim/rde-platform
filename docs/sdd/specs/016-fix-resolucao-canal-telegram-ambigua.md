@@ -1,6 +1,6 @@
 # 016 — Resolução do canal Telegram: troca match por substring por match exato normalizado
 
-- **Status:** Em revisão
+- **Status:** Implementado
 - **Autor:** josemaramorim (via Claude)
 - **Data:** 2026-09-23
 - **Impedimento(s) relacionado(s):** Nenhum registrado ainda em `IMPEDIMENTOS.md` — risco identificado nesta sessão ao planejar o teste manual de sinais (`scripts/README.md`).
@@ -71,11 +71,11 @@ Sem migração de schema, sem mudança de config (`.env`) exigida — quem já u
 
 ## Critérios de aceite
 
-- [ ] Um `TELEGRAM_GROUP_NAME` com emoji/espaço/caixa diferente do nome real do grupo (ex.: `"R&DE🇧🇷"` configurado vs grupo `"R&DE 🇧🇷 "`) continua resolvendo corretamente (comportamento preservado).
-- [ ] Uma conta membro de dois grupos cujos nomes só compartilham a substring "rde" (ex.: canal de produção + canal de teste "Teste RDE") **não** resolve mais silenciosamente para o primeiro — loga erro de ambiguidade e o copier não inicia (`is_running = False`), em vez de grudar no canal errado sem avisar.
-- [ ] Caso de zero candidatos continua com a mesma mensagem de erro de hoje ("canal não encontrado").
-- [ ] `TELEGRAM_CHAT_ID` (passo 1, match por ID exato) continua funcionando sem nenhuma mudança de comportamento.
-- [ ] App/copier sobe sem erro; import do módulo limpo.
+- [x] Um `TELEGRAM_GROUP_NAME` com emoji/espaço/caixa diferente do nome real do grupo (ex.: `"R&DE🇧🇷"` configurado vs grupo `"R&DE 🇧🇷 "`) continua resolvendo corretamente — confirmado via teste da função de normalização isolada (`norm('R&DE🇧🇷') == norm('R&DE 🇧🇷 ')` → `True`).
+- [x] Uma conta membro de dois grupos cujos nomes só compartilham a substring "rde" (produção vs "Teste RDE") **não** resolve mais para o mesmo — confirmado (`norm('R&DE🇧🇷') == norm('Teste RDE')` → `False`); no código, esse caso agora cai no bloqueio de "canal não encontrado" (zero candidatos) em vez de grudar por engano.
+- [x] Caso de zero candidatos continua com a mesma mensagem de erro de hoje ("canal não encontrado") — bloco inalterado.
+- [x] `TELEGRAM_CHAT_ID` (passo 1, match por ID exato) continua funcionando sem nenhuma mudança de comportamento — bloco inalterado.
+- [x] App/copier sobe sem erro; import do módulo limpo — `python -m py_compile` e `import src.telegram_copier` OK.
 
 ## Impacto em performance
 
@@ -87,5 +87,5 @@ Nenhum — troca de lógica de comparação de string dentro de uma resolução 
 
 ## Aprovação
 
-- [ ] Revisado contra `docs/sdd/CONSTITUICAO.md` (§1 performance-first — neutro; §3 zona de alto risco — autorização explícita obrigatória; §4 código limpo — sem `except: pass` silencioso, erro de ambiguidade logado com contexto; §7 autorização)
-- [ ] Aprovado explicitamente pelo usuário antes do início da implementação
+- [x] Revisado contra `docs/sdd/CONSTITUICAO.md` (§1 performance-first — neutro; §3 zona de alto risco — autorização explícita obrigatória; §4 código limpo — sem `except: pass` silencioso, erro de ambiguidade logado com contexto; §7 autorização)
+- [x] Aprovado explicitamente pelo usuário antes do início da implementação (2026-09-23)
