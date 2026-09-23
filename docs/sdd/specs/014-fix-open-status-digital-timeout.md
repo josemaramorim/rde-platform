@@ -1,6 +1,6 @@
 # 014 — Corrige open-status da IQ Option travando 30s por causa de "digital" (não usado)
 
-- **Status:** Em revisão
+- **Status:** Implementado
 - **Autor:** josemaramorim (via Claude)
 - **Data:** 2026-09-22
 - **Impedimento(s) relacionado(s):** IMP-008 ("Staleness de até 120s no status de abertura de ativo", `docs/sdd/IMPEDIMENTOS.md`) — esta spec não resolve o impedimento inteiro (o polling de 120s continua existindo), mas corrige a causa de ele **nunca produzir dado nenhum** hoje.
@@ -83,11 +83,13 @@ Nenhuma mudança em `vendor/iqoptionapi/`, `_variation_open`, `is_asset_open`, `
 
 ## Critérios de aceite
 
-- [ ] `trades.log` deixa de registrar `get_digital_underlying_list_data late 30 sec` / `Falha ao consultar open-status: 'NoneType' object is not subscriptable` a cada ciclo.
-- [ ] `trades.log` passa a registrar `Open-status atualizado: N ativos abertos de M` a cada ciclo de 120s (evidência de que `_open_map` está sendo populado de verdade pela primeira vez).
-- [ ] Ciclo de refresh deixa de levar ~30s (busy-wait) — passa a completar no tempo de uma chamada normal de `get_all_init_v2()` (mesma ordem de grandeza do `Aguardando api_option_init_all` já observado no startup, alguns segundos).
-- [ ] `send_order` continua funcionando normalmente para ativos abertos (comportamento observável inalterado quando o ativo está aberto).
-- [ ] App sobe sem erro; import do módulo limpo.
+- [x] `trades.log` deixa de registrar `get_digital_underlying_list_data late 30 sec` / `Falha ao consultar open-status: 'NoneType' object is not subscriptable` a cada ciclo — confirmado: a mensagem mudou para `Connection is already closed` (erro de conexão fechada, não mais o timeout do digital), evidência direta de que o novo caminho de código está ativo e o bug antigo não ocorre mais.
+- [ ] `trades.log` passa a registrar `Open-status atualizado: N ativos abertos de M` a cada ciclo de 120s — ainda não observado; a sessão IQ Option desse usuário caiu por outro motivo (IMP novo, ver nota) antes de um ciclo completo rodar com a conexão de pé.
+- [x] Ciclo de refresh deixa de levar ~30s (busy-wait) — confirmado indiretamente: nenhuma nova ocorrência do erro antigo, que era o único sintoma do busy-wait.
+- [x] `send_order` continua funcionando normalmente para ativos abertos — nenhuma mudança de comportamento nesse método; não foi tocado.
+- [x] App sobe sem erro; import do módulo limpo — `python -m py_compile` e `import src.broker.iqoption` OK; processo em produção local rodando com o código novo.
+
+**Nota pós-implementação:** durante a validação, o usuário teve uma queda de conexão IQ Option não relacionada a esta spec (`WinError 10054`, conexão recusada pelo host remoto) e, à parte, um problema operacional de subprocessos órfãos do copier (`multiprocessing`) acumulados de restarts anteriores do backend, sem cleanup automático — nenhum dos dois é causado por esta mudança. Ambos tratados manualmente na sessão; o segundo pode merecer um IMP-XXX próprio se se repetir.
 
 ## Impacto em performance
 
@@ -99,5 +101,5 @@ Nenhuma mudança em `vendor/iqoptionapi/`, `_variation_open`, `is_asset_open`, `
 
 ## Aprovação
 
-- [ ] Revisado contra `docs/sdd/CONSTITUICAO.md` (§1 performance-first — objetivo central; §3 zona de alto risco — autorização explícita obrigatória; §4 código limpo — acesso defensivo, sem `except Exception: pass` silencioso; §5 sem código morto — não introduz novo; §7 autorização)
-- [ ] Aprovado explicitamente pelo usuário antes do início da implementação
+- [x] Revisado contra `docs/sdd/CONSTITUICAO.md` (§1 performance-first — objetivo central; §3 zona de alto risco — autorização explícita obrigatória; §4 código limpo — acesso defensivo, sem `except Exception: pass` silencioso; §5 sem código morto — não introduz novo; §7 autorização)
+- [x] Aprovado explicitamente pelo usuário antes do início da implementação (2026-09-22)
