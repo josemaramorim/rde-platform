@@ -8,9 +8,10 @@ interface LogTerminalModalProps {
   onClose: () => void;
   token?: string | null;
   isAdmin?: boolean;
+  userId?: string | null;
 }
 
-export default function LogTerminalModal({ isOpen, onClose, token, isAdmin = false }: LogTerminalModalProps) {
+export default function LogTerminalModal({ isOpen, onClose, token, isAdmin = false, userId = null }: LogTerminalModalProps) {
   const [logs, setLogs] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,10 +45,15 @@ export default function LogTerminalModal({ isOpen, onClose, token, isAdmin = fal
 
   const fetchLogs = useCallback(async (isManual = false) => {
     if (!token) return;
+    if (isAdmin && !userId) {
+      setError("Selecione um usuário para ver os logs.");
+      setLoading(false);
+      return;
+    }
     if (isManual) setLoading(true);
     try {
       const endpoint = isAdmin
-        ? `${API_URL}/admin/logs/copier?lines=${lineCount}${searchQuery ? `&filter=${encodeURIComponent(searchQuery)}` : ""}`
+        ? `${API_URL}/admin/logs/copier?lines=${lineCount}&user_id=${encodeURIComponent(userId!)}${searchQuery ? `&filter=${encodeURIComponent(searchQuery)}` : ""}`
         : `${API_URL}/copier/logs?lines=${lineCount}${searchQuery ? `&filter=${encodeURIComponent(searchQuery)}` : ""}`;
 
       const res = await fetch(endpoint, {
@@ -72,7 +78,7 @@ export default function LogTerminalModal({ isOpen, onClose, token, isAdmin = fal
     } finally {
       setLoading(false);
     }
-  }, [token, isAdmin, lineCount, searchQuery]);
+  }, [token, isAdmin, userId, lineCount, searchQuery]);
 
   // Carregamento inicial e loop parametrizável
   useEffect(() => {
@@ -113,10 +119,10 @@ export default function LogTerminalModal({ isOpen, onClose, token, isAdmin = fal
   };
 
   const handleClearServerLogs = async () => {
-    if (!isAdmin || !token) return;
+    if (!isAdmin || !token || !userId) return;
     if (!confirm("Tem certeza que deseja limpar o arquivo de log no servidor?")) return;
     try {
-      await fetch(`${API_URL}/admin/logs/copier`, {
+      await fetch(`${API_URL}/admin/logs/copier?user_id=${encodeURIComponent(userId)}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -187,7 +193,7 @@ export default function LogTerminalModal({ isOpen, onClose, token, isAdmin = fal
             >
               ⬇️ Baixar
             </button>
-            {isAdmin && (
+            {isAdmin && userId && (
               <button
                 onClick={handleClearServerLogs}
                 className="px-3 py-1.5 bg-rose-950 hover:bg-rose-900 text-rose-300 text-xs font-bold rounded-lg transition-all border border-rose-800/40"

@@ -39,6 +39,7 @@ export default function AdminPage() {
     const [saving, setSaving] = useState(false);
     const [saveMsg, setSaveMsg] = useState("");
     const [showLogsModal, setShowLogsModal] = useState(false);
+    const [logsUser, setLogsUser] = useState<User | null>(null);
 
 
     // Novo cliente
@@ -299,10 +300,6 @@ export default function AdminPage() {
                     <p className="text-slate-400 mt-1 text-xs">Controle de clientes e licenças</p>
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                    <button onClick={() => setShowLogsModal(true)}
-                        className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-lg shadow-cyan-900/30">
-                        🖥️ Logs do Servidor
-                    </button>
                     <button onClick={() => setShowCriar(!showCriar)}
                         className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all">
                         + Novo Cliente
@@ -550,6 +547,11 @@ export default function AdminPage() {
                                                     className="px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-[10px] font-black uppercase transition-all">
                                                     Gerir
                                                 </button>
+                                                <button onClick={() => { setLogsUser(u); setShowLogsModal(true); }}
+                                                    className="px-2 py-1 bg-slate-700 hover:bg-slate-600 text-cyan-300 rounded-lg text-[10px] font-black uppercase transition-all"
+                                                    title={`Ver logs de ${u.email}`}>
+                                                    🖥️ Logs
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -654,9 +656,10 @@ export default function AdminPage() {
             {/* Modal de Logs do Terminal */}
             <LogTerminalModal
                 isOpen={showLogsModal}
-                onClose={() => setShowLogsModal(false)}
+                onClose={() => { setShowLogsModal(false); setLogsUser(null); }}
                 token={token}
                 isAdmin={true}
+                userId={logsUser?.id ?? null}
             />
         </div>
     );
