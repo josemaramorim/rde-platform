@@ -47,14 +47,39 @@ def _sem_espera_real(monkeypatch):
     monkeypatch.setattr(tc.asyncio, "sleep", _fast_sleep)
 
 
+@pytest.fixture(autouse=True)
+def _sem_cliente_telegram_real(monkeypatch):
+    """TelegramCopier cria um TelethonClient no construtor: exige TELEGRAM_API_ID/HASH
+    reais (ausentes no CI) e grava um .session na raiz do repo. Nenhum teste
+    daqui usa o Telegram."""
+    class _FakeTelegramClient:
+        def __init__(self, *args, **kwargs):
+            pass
+    monkeypatch.setattr(tc, "TelegramClient", _FakeTelegramClient)
+
+
 async def test_win_com_payout_real_nao_fixo():
-    broker = _FakeBroker(balance_after=109.2)  # saldo 100 -> 109.2 = ganho de 9.2
+    # stake = 1% de 100 = 1.00; saldo 100 -> 100.87 = payout real de 87%
+    broker = _FakeBroker(balance_after=100.87)
     copier = _make_copier(broker, balance=100.0)
 
     await copier.execute_trade({"symbol": "EURUSD-OTC", "direction": "CALL", "duration": 1})
 
     status = copier.session_manager.get_status()
-    assert status["daily_profit"] == pytest.approx(9.2)
+    assert status["daily_profit"] == pytest.approx(0.87)
+
+
+async def test_win_com_delta_absurdo_e_limitado(caplog):
+    """Spec 019: delta > 2x o stake indica credito atrasado de ordem anterior
+    somado ao desta -- o lucro registrado e limitado a 95% do stake."""
+    broker = _FakeBroker(balance_after=109.2)  # +9.2 num stake de 1.00 (920%)
+    copier = _make_copier(broker, balance=100.0)
+
+    await copier.execute_trade({"symbol": "EURUSD-OTC", "direction": "CALL", "duration": 1})
+
+    status = copier.session_manager.get_status()
+    assert status["daily_profit"] == pytest.approx(0.95)
+    assert "muito acima do payout esperado" in caplog.text
 
 
 async def test_loss_permanece_perda_total_do_stake():
