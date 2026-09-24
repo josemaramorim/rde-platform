@@ -1,6 +1,6 @@
 # 021 — Admin redefine a senha de um usuário pelo modal "Gerir"
 
-- **Status:** Rascunho
+- **Status:** Implementado (backend validado; interface pendente de teste manual no painel)
 - **Autor:** Claude (a pedido de josemaramorim)
 - **Data:** 2026-09-24
 - **Impedimento(s) relacionado(s):** Nenhum
@@ -68,13 +68,15 @@ Visual no mesmo padrão dos outros blocos do modal (classes Tailwind existentes)
 - [ ] Admin abre **Gerir** num usuário, define uma senha nova e vê a mensagem de sucesso.
 - [ ] O usuário consegue entrar com a senha nova, e a senha antiga passa a ser recusada.
 - [ ] Senha com menos de 8 caracteres ou confirmação diferente: erro no modal, e nenhuma requisição é enviada.
-- [ ] Chamando o endpoint direto com senha curta: HTTP 400.
-- [ ] Chamando o endpoint com token de usuário comum: HTTP 403.
-- [ ] `user_id` inexistente: HTTP 404.
-- [ ] Aparece uma linha `reset_user_password` no `AdminLog` com o e-mail do admin e do usuário, **sem a senha**.
-- [ ] A senha não aparece no log do backend nem na resposta HTTP.
+- [x] Chamando o endpoint direto com senha curta: HTTP 400.
+- [x] Chamando o endpoint com token de usuário comum: HTTP 403.
+- [x] `user_id` inexistente: HTTP 404.
+- [x] Aparece uma linha `reset_user_password` no `AdminLog` com o e-mail do admin e do usuário, **sem a senha**.
+- [x] A senha não aparece no log do backend nem na resposta HTTP.
 - [ ] Fechar e reabrir o modal (no mesmo usuário ou em outro) mostra os campos de senha vazios.
 - [ ] O resto do modal (plano, licença, bloquear, notas) continua funcionando como antes.
+
+**Como foi validado (2026-09-24):** teste funcional com app FastAPI mínimo incluindo o router real de `admin_routes`, `UserManager` real e banco SQLite descartável: 400 com senha curta, 404 com usuário inexistente, 403 para quem não é admin, 200 no caso válido; a senha nova confere e a antiga é recusada (verificado no `hashed_password`); uma linha `reset_user_password` no `AdminLog` com os e-mails corretos; a senha não aparece na resposta, no `AdminLog` nem em nenhum registro de log capturado. Frontend: `tsc --noEmit` sem erros. A suíte `pytest` tem 28 testes passando e 1 falhando (`test_telegram_copier_payout.py::test_win_com_payout_real_nao_fixo`), que falha igual na `main` sem esta mudança, ou seja, é anterior e sem relação. Os critérios de interface ficam para o teste manual no painel depois do deploy.
 
 ## Impacto em performance
 
@@ -91,4 +93,4 @@ Neutro. É um endpoint administrativo, fora do hot path de ordens, com uma leitu
 ## Aprovação
 
 - [x] Revisado contra `docs/sdd/CONSTITUICAO.md` (§2 reutiliza o `UserManager` do fastapi-users, §4 type hints e sem `except: pass`, §7 nada implementado antes da aprovação, §8 branch própria)
-- [ ] Aprovado explicitamente pelo usuário antes do início da implementação
+- [x] Aprovado explicitamente pelo usuário antes do início da implementação (2026-09-24)

@@ -41,6 +41,12 @@ export default function AdminPage() {
     const [showLogsModal, setShowLogsModal] = useState(false);
     const [logsUser, setLogsUser] = useState<User | null>(null);
 
+    // Redefinir senha (modal Gerir)
+    const [resetPwd, setResetPwd] = useState("");
+    const [resetPwdConfirm, setResetPwdConfirm] = useState("");
+    const [resetPwdMsg, setResetPwdMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+    const [resetPwdLoading, setResetPwdLoading] = useState(false);
+
 
     // Novo cliente
     const [novoEmail, setNovoEmail]   = useState("");
@@ -242,6 +248,46 @@ export default function AdminPage() {
             }
         } catch {
             showToast("Erro de conexão ao alterar plano.", false);
+        }
+    };
+
+    const openModal = (user: User) => {
+        setModal(user);
+        setModalNotes(user.admin_notes || "");
+        setModalPlan(user.plan_name || "Free");
+        setSaveMsg("");
+        setResetPwd(""); setResetPwdConfirm(""); setResetPwdMsg(null);
+    };
+
+    const resetUserPassword = async () => {
+        if (!modal || !token) return;
+        setResetPwdMsg(null);
+        if (resetPwd.length < 8) {
+            setResetPwdMsg({ type: "err", text: "Senha deve ter pelo menos 8 caracteres." });
+            return;
+        }
+        if (resetPwd !== resetPwdConfirm) {
+            setResetPwdMsg({ type: "err", text: "As senhas não coincidem." });
+            return;
+        }
+        setResetPwdLoading(true);
+        try {
+            const res = await fetch(`/admin/v2/user/${modal.id}/password`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ new_password: resetPwd }),
+            });
+            if (res.ok) {
+                setResetPwdMsg({ type: "ok", text: "Senha redefinida com sucesso!" });
+                setResetPwd(""); setResetPwdConfirm("");
+            } else {
+                const err = await res.json().catch(() => ({}));
+                setResetPwdMsg({ type: "err", text: errToText(err.detail) || "Erro ao redefinir a senha." });
+            }
+        } catch {
+            setResetPwdMsg({ type: "err", text: "Erro de conexão ao redefinir a senha." });
+        } finally {
+            setResetPwdLoading(false);
         }
     };
 
@@ -543,7 +589,7 @@ export default function AdminPage() {
                                                     className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase transition-all ${u.liberado ? "bg-red-500/10 text-red-400 hover:bg-red-500/20" : "bg-emerald-600 text-white hover:bg-emerald-500"}`}>
                                                     {u.liberado ? "Revogar" : "Liberar"}
                                                 </button>
-                                                <button onClick={() => { setModal(u); setModalNotes(u.admin_notes || ""); setModalPlan(u.plan_name || "Free"); setSaveMsg(""); }}
+                                                <button onClick={() => openModal(u)}
                                                     className="px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-[10px] font-black uppercase transition-all">
                                                     Gerir
                                                 </button>
@@ -579,7 +625,7 @@ export default function AdminPage() {
             {/* Modal */}
             {modal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-                    <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+                    <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
                         <h2 className="text-lg font-black text-white mb-1">Gerir Cliente</h2>
                         <p className="text-slate-400 text-sm mb-5">{modal.email}</p>
 
@@ -626,6 +672,27 @@ export default function AdminPage() {
                                     </button>
                                 ))}
                             </div>
+                        </div>
+
+                        {/* Redefinir senha */}
+                        <div className="mb-5">
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Redefinir Senha</label>
+                            <div className="flex flex-col gap-2 mt-2">
+                                <input type="password" value={resetPwd} onChange={e => setResetPwd(e.target.value)}
+                                    placeholder="Nova senha (mín. 8 caracteres)" autoComplete="new-password"
+                                    className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500/50" />
+                                <input type="password" value={resetPwdConfirm} onChange={e => setResetPwdConfirm(e.target.value)}
+                                    placeholder="Repita a nova senha" autoComplete="new-password"
+                                    className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500/50" />
+                                <button onClick={resetUserPassword}
+                                    disabled={resetPwdLoading || !resetPwd || !resetPwdConfirm}
+                                    className="py-2.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all">
+                                    {resetPwdLoading ? "Salvando..." : "Redefinir Senha"}
+                                </button>
+                            </div>
+                            {resetPwdMsg && (
+                                <p className={`text-sm mt-2 font-bold ${resetPwdMsg.type === "ok" ? "text-emerald-400" : "text-red-400"}`}>{resetPwdMsg.text}</p>
+                            )}
                         </div>
 
                         {/* Notas */}
