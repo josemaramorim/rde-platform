@@ -10,6 +10,10 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi_users.exceptions import UserNotExists
+
+from src.auth.manager import UserManager, get_user_manager
+from src.auth.schemas import UserUpdate
 from src.auth.users import current_superuser
 from src.models.user import User, Plan, PlanHistory, AdminLog
 from src.database.session import get_async_session
@@ -171,6 +175,50 @@ async def set_user_plan(
     await db.commit()
     log_admin(admin.email, "set_user_plan", f"{user.email}: {plan.name}")
     return {"status": "success", "plan_id": plan.id, "plan_name": plan.name}
+
+
+MIN_PASSWORD_LENGTH = 8  # mesma regra do frontend (perfil/page.tsx, admin/page.tsx)
+
+
+class PasswordReset(BaseModel):
+    new_password: str
+
+
+@router.patch("/user/{user_id}/password")
+async def reset_user_password(
+    user_id: uuid.UUID,
+    payload: PasswordReset,
+    db: AsyncSession = Depends(get_async_session),
+    admin: User = Depends(current_superuser),
+    user_manager: UserManager = Depends(get_user_manager),
+) -> dict:
+    """
+    Admin redefine a senha de um usuário (spec 021).
+    A senha nunca vai para log, AdminLog nem resposta.
+    """
+    if len(payload.new_password) < MIN_PASSWORD_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"A senha deve ter pelo menos {MIN_PASSWORD_LENGTH} caracteres.",
+        )
+
+    try:
+        user = await user_manager.get(user_id)
+    except UserNotExists:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Mesmo caminho de PATCH /users/me: hash + validação do UserManager
+    await user_manager.update(UserUpdate(password=payload.new_password), user, safe=False)
+
+    db.add(AdminLog(
+        admin_email=admin.email,
+        action="reset_user_password",
+        target_user=user.email,
+        detail="",
+    ))
+    await db.commit()
+    log_admin(admin.email, "reset_user_password", user.email)
+    return {"status": "success"}
 
 
 @router.post("/user/{user_id}/toggle-active")
